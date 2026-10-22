@@ -1,5 +1,7 @@
+import errno
 import json
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -161,6 +163,36 @@ def test_corrupt_file_is_backed_up_and_store_starts_fresh(tmp_path, caplog, cont
     assert json.loads(path.read_text())["schema_version"] == d.SCHEMA_VERSION
 
 
+def test_invalid_utf8_counts_as_corrupt(tmp_path):
+    path = tmp_path / "metadata.json"
+    path.write_bytes(b'{"schema_version": 1, "jobs": {"\xff": {}}}')
+    store = d.MetadataStore(path).load()
+    assert store.recovered_from is not None and not path.exists()
+
+
+def test_a_folder_is_never_moved_aside(tmp_path):
+    folder = tmp_path / "downloads"
+    (folder / "song").mkdir(parents=True)
+    (folder / "song" / "a.mp3").write_bytes(b"x")
+    with pytest.raises(d.MetadataError, match="exists but is not a file"):
+        d.MetadataStore(folder).load()
+    assert (folder / "song" / "a.mp3").is_file()
+    assert [p.name for p in tmp_path.iterdir()] == ["downloads"]
+
+
+@pytest.mark.skipif(os.name == "nt" or os.geteuid() == 0, reason="needs POSIX permissions, non-root")
+def test_unreadable_file_is_an_error_not_corruption(tmp_path):
+    path = tmp_path / "metadata.json"
+    path.write_text('{"schema_version": 1, "jobs": {}}')
+    path.chmod(0)
+    try:
+        with pytest.raises(d.MetadataError, match="cannot read metadata file"):
+            d.MetadataStore(path).load()
+        assert [p.name for p in tmp_path.iterdir()] == ["metadata.json"]
+    finally:
+        path.chmod(0o600)
+
+
 def test_two_backups_in_the_same_second_do_not_collide(tmp_path):
     path = tmp_path / "metadata.json"
     path.write_text("bad 1")
@@ -241,3 +273,25 @@ def test_lock_released_after_context_and_reusable(tmp_path):
     with d.MetadataLock(path) as lock:
         assert lock.path.name == "metadata.json.lock"
     assert lock.path.exists() and lock.path.read_text() == ""
+
+
+def test_lock_errors_other_than_contention_are_not_reported_as_running(tmp_path, monkeypatch):
+    def no_locks(fh):
+        raise OSError(errno.ENOLCK, "No locks available")
+
+    monkeypatch.setattr(d, "_lock_file", no_locks)
+    with pytest.raises(d.MetadataError, match="may not support locking"):
+        d.MetadataLock(tmp_path / "metadata.json").acquire()
+
+    def held(fh):
+        raise OSError(errno.EAGAIN, "Resource temporarily unavailable")
+
+    monkeypatch.setattr(d, "_lock_file", held)
+    with pytest.raises(d.LockError):
+        d.MetadataLock(tmp_path / "metadata.json").acquire()
+
+
+def test_lock_file_that_cannot_be_created(tmp_path):
+    (tmp_path / "out").write_text("a file where a folder should be")
+    with pytest.raises(d.MetadataError, match="cannot create lock file"):
+        d.MetadataLock(tmp_path / "out" / "metadata.json").acquire()

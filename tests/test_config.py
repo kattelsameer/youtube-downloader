@@ -251,6 +251,18 @@ def test_metadata_file_is_global_only(tmp_path):
     assert errors == ["jobs[0] (tag 'song-single'): 'metadata_file' is global only; set it under defaults"]
 
 
+def test_metadata_file_must_not_be_a_folder(tmp_path):
+    (tmp_path / "downloads").mkdir()
+    errors = errors_for(tmp_path, base_config(metadata_file="downloads"))
+    assert errors == ["defaults: metadata_file: 'downloads' is a folder; give a file path such as "
+                      "downloads/metadata.json"]
+
+
+def test_metadata_file_type_error_reported_with_other_errors(tmp_path):
+    errors = errors_for(tmp_path, base_config(metadata_file=5, format="wav"))
+    assert "defaults: metadata_file: must be a file path (got 5)" in errors and len(errors) == 2
+
+
 def test_job_keys_rejected_in_defaults(tmp_path):
     errors = errors_for(tmp_path, base_config(url=VIDEO))
     assert errors == ["defaults: 'url' is a job setting; set it on each job"]
