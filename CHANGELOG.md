@@ -9,6 +9,19 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-23
+
+### Added
+
+- Config loader: `defaults` + `jobs` YAML with merge order CLI > job >
+  defaults > built-in, validation of every key and value (all problems are
+  reported at once, naming the job), unknown-key suggestions, tag
+  sanitizing with duplicate detection, YouTube URL checks per mode, and the
+  `order` setting (playlist, newest, oldest, title_asc, title_desc,
+  shortest, longest).
+- Mix/radio playlists (`list=RD...`) are accepted as normal playlists;
+  `mix_limit` caps how many entries are read since mixes never end.
+
 ## [0.0.3] - 2026-10-23
 
 ### Added
