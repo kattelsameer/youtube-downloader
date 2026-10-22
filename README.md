@@ -464,7 +464,8 @@ prints it. Every feature or fix branch bumps the version before it is merged
 into `develop` and adds an entry to [CHANGELOG.md](CHANGELOG.md):
 
 - During initial development, each merged change bumped the PATCH number
-  (0.0.1, 0.0.2, ...). 0.1.0 is the first working release.
+  (0.0.1, 0.0.2, ...). 0.1.0 is the first release; its changelog entry
+  covers all of those builds.
 - From 0.1.0 on: a new feature bumps MINOR, a bug fix bumps PATCH, and a
   breaking change to the config or metadata format bumps MAJOR (MINOR while
   below 1.0.0) and is described in this README.
@@ -481,6 +482,9 @@ into `develop` and adds an entry to [CHANGELOG.md](CHANGELOG.md):
 - A branch is merged only when its tests and the whole existing suite pass
   and `manifest.json` has been bumped. Conflicts are resolved on the feature
   branch by merging `develop` into it first.
+- A release is prepared on a `release-<version>` branch (for example
+  `release-0.1.0`) from `develop`: version bump and changelog, merged into
+  `develop` like any other branch. Merging into `master` is done by hand.
 - Commit messages are a single imperative subject line of at most 72
   characters, with a short body only when needed, and no trailers.
 

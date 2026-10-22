@@ -2,236 +2,105 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow
-[Semantic Versioning](https://semver.org/).
-
-While the tool is being built, every merged feature or fix bumps the PATCH
-number (0.0.x). Version 0.1.0 marks the first working release.
+[Semantic Versioning](https://semver.org/): a new feature bumps MINOR, a bug
+fix bumps PATCH, and a breaking change to the config or metadata format bumps
+MAJOR (MINOR while below 1.0.0).
 
 ## [Unreleased]
 
-## [0.0.21] - 2026-10-23
+## [0.1.0] - 2026-10-23 - First release
 
-### Fixed
+The development builds 0.0.1 to 0.0.21 are folded into this entry. The git
+history on `develop` has one merge per feature or fix.
 
-- On a console that can't show some characters (e.g. Windows cp1252 or
-  redirected output), an emoji in a title crashed the job with a
-  `UnicodeEncodeError`. Such characters are now printed as `\U` escapes.
+### Configuration
 
-## [0.0.20] - 2026-10-23
+- `config.yaml` with a `defaults` block and a list of `jobs`. Merge order:
+  command line > job > defaults > built-in defaults.
+- The whole config is validated at startup. Every problem (unknown key with
+  a suggestion, bad value, missing URL, invalid `count`, duplicate tag, a
+  folder given as `metadata_file`, missing `cookies_file`) is reported at
+  once, naming the job.
+- Job tags are turned into safe folder names, and tags that map to the same
+  folder are rejected.
+- URLs must be YouTube URLs that fit the job's mode. Mix playlists
+  (`list=RD...`) are treated as normal playlists, capped at `mix_limit`;
+  YouTube Music curated playlists (`RDCLAK5uy_...`) are not capped.
+- `order` (playlist, newest, oldest, title_asc, title_desc, shortest,
+  longest) sorts a playlist before `count` takes the first N.
+- `filename_template` must stay inside the job folder, including Windows
+  drive and `..\` forms.
 
-### Fixed
+### Downloading
 
-- With a `filename_template` that creates subfolders (e.g.
-  `%(uploader)s/%(title)s.%(ext)s`), `--force` moved the new file to the
-  job folder's top level, and leftovers of interrupted attempts in such
-  subfolders were not cleared. Both now keep the template's folders.
+- mp3: best audio converted with ffmpeg at `audio_quality`. mp4: best stream
+  at or below `max_resolution`, falling back to the closest one, preferring
+  h264/AAC, merged into mp4.
+- Files go to `<output_dir>/<tag>/`, or `<output_dir>/<tag>/<playlist
+  title>/` with `use_playlist_subfolder`.
+- Work happens in `.incomplete/<video id>/` inside the job folder; only
+  finished files are moved into the job folder. Leftovers of an interrupted
+  attempt are cleared before the next one, except resumable `.part` files.
+- `--force` and `skip_existing: false` replace a file only after the new
+  download succeeds.
+- Jobs run one after another; the videos of a job download in parallel in
+  `max_workers` processes, each with its own YoutubeDL, plus
+  `concurrent_fragment_downloads` per video.
+- JavaScript runtime selection for yt-dlp (`js_runtime: auto` uses deno,
+  then node, then bun).
+- `cookies_file` (only read; each yt-dlp instance gets an in-memory copy),
+  `proxy`, `rate_limit`, `retries`, `socket_timeout`, `embed_metadata`,
+  `embed_thumbnail`.
 
-## [0.0.19] - 2026-10-23
+### Incremental sync and metadata
 
-### Fixed
+- One JSON metadata file for all jobs (`schema_version` 1), with a record
+  per video ID and per format.
+- Each run downloads only what isn't recorded as downloaded in the job's
+  current format, and prints "Up to date, nothing to download" when
+  nothing is new.
+- Failed videos are recorded with their error and attempt count, and
+  skipped until `--retry-failed` or `retry_failed: true`.
+- Switching a job's format downloads everything again and keeps the old
+  format's records. `verify_files` re-downloads recorded videos whose file
+  is gone; `--force` re-downloads everything selected.
+- Videos removed from a playlist are reported as "no longer in playlist"
+  and never deleted. Metadata of jobs removed from the config is kept.
+- The metadata file is written atomically after every finished video and
+  protected by a lock file against concurrent runs. A corrupt file is moved
+  to `metadata.json.bak.<timestamp>` and the run starts fresh; folders and
+  unreadable files are never moved, and a file from a newer schema is
+  refused.
 
-- A missing `cookies_file` is reported even when the same job has other
-  config errors, so all problems show up in one run.
-- YouTube Music curated playlists (`RDCLAK5uy_...`) are no longer treated
-  as endless Mixes and cut to `mix_limit`.
-- `filename_template` values like `D:%(title)s.%(ext)s` or
-  `..\%(title)s.%(ext)s`, which could write outside the job folder on
-  Windows, are rejected.
+### Robustness
 
-## [0.0.18] - 2026-10-23
+- A failing video or job never stops the others. If a worker process
+  crashes, the videos it didn't finish are left for the next run instead of
+  being marked as failed.
+- Ctrl+C cancels queued downloads, stops running ones right away, keeps
+  everything finished, and exits with code 130; the next run continues.
+- Errors caused by YouTube rate limiting or bot checks come with a hint.
+  yt-dlp's retry messages are logged at debug level.
+- Output never crashes on characters the console can't encode.
 
-### Fixed
+### Command line
 
-- yt-dlp writes its cookie jar back to `cookies_file` when it closes. With
-  several workers (and `--dry-run` too) that rewrote the user's cookies file
-  concurrently and could garble it. Each yt-dlp instance now gets an
-  in-memory copy and the file is never written.
-
-## [0.0.17] - 2026-10-23
-
-### Fixed
-
-- A `metadata_file` pointing at a folder was treated as corrupt and the
-  whole folder was renamed to `<name>.bak.<timestamp>`. Folders and
-  unreadable files are now never moved: config validation rejects a folder,
-  and a read error stops the run with exit code 4. Only files that can't be
-  parsed or have the wrong structure are backed up.
-- Lock failures other than "held by another process" (e.g. a network drive
-  without lock support, or a lock file that can't be created) are reported
-  as such with exit code 4, instead of "another instance is already running".
-- A wrongly typed `metadata_file` is reported together with all other config
-  errors.
-
-## [0.0.16] - 2026-10-23
-
-### Fixed
-
-- When one worker process crashed, every queued video was recorded as
-  failed and skipped on later runs. Unfinished videos are now left
-  unrecorded, so the next run tries them again; the job reports the crash.
-- An unexpected error while recording a result (e.g. disk full) now stops
-  the running downloads instead of waiting for them, and other jobs still
-  run.
-- The download loop polls for results, so Ctrl+C also gets through on
-  Windows.
-
-## [0.0.15] - 2026-10-23
-
-### Fixed
-
-- A video interrupted during mp3 conversion could leave a truncated `.mp3`
-  that the next run accepted as finished. Downloads and conversions now
-  happen in `<job folder>/.incomplete/<video id>/`; only finished files are
-  moved into the job folder, and leftovers except `.part` files are cleared
-  before each attempt.
-- `--force` (and `skip_existing: false`) deleted the existing file before
-  downloading again, so a failed re-download lost it. The new file now
-  replaces the old one only after it succeeds.
-
-## [0.0.14] - 2026-10-23
-
-### Added
-
-- README: setup (uv, ffmpeg, JavaScript runtime), command line, config
-  reference, output layout, metadata file format, incremental sync rules
-  (including how `count` windows and Mix playlists behave), performance
-  notes, Ctrl+C, troubleshooting, versioning and git workflow.
-- Test that the README documents every setting and command-line flag.
-
-## [0.0.13] - 2026-10-23
-
-### Fixed
-
-- Output shows paths relative to the current folder (download folder,
-  lock file) instead of absolute paths.
-- Dry runs no longer print an empty "already downloaded (0)" section.
-- yt-dlp's "Retrying (n/3)" and "Giving up" warnings are logged at debug
-  level; the final error is still reported once.
-
-## [0.0.12] - 2026-10-23
-
-### Fixed
-
-- Ctrl+C now stops downloads that are in progress right away. Before, the
-  worker processes were not terminated, so the tool waited for them to
-  finish and their files were left on disk without metadata records.
-
-## [0.0.11] - 2026-10-23
-
-### Added
-
-- Command line: `--config`, `--job` (repeatable), `--list`, `--dry-run`,
-  `--status`, `--retry-failed`, `--force`, `--format`, `--output-dir`,
-  `--max-workers`, `--version`. Exit codes: 0 ok, 1 some downloads
-  failed, 2 config error, 3 another instance running, 4 metadata unusable,
-  130 interrupted.
-- Example `config.yaml` with commented defaults and mp3/mp4 single and
-  playlist jobs (plus a disabled Mix job).
-
-### Fixed
-
-- Failed videos keep the title from the playlist listing in the metadata.
-
-## [0.0.10] - 2026-10-23
-
-### Added
-
-- Job runner: jobs run one after another; each job's videos download in a
-  `ProcessPoolExecutor` (`max_workers`), each worker with its own
-  YoutubeDL. Only the main process writes the metadata file, flushing
-  after every finished video.
-- Ctrl+C cancels queued downloads, stops running workers and keeps
-  everything finished so far; the next run continues with the rest.
-- A failing video or job never stops the others; a crashed worker is
-  recorded as a failure.
-- Per-video progress lines, per-job summaries and an overall summary (new
+- `--config`, `--job` (repeatable), `--list`, `--dry-run`, `--status`,
+  `--retry-failed`, `--force`, `--format`, `--output-dir`, `--max-workers`,
+  `--version`.
+- Per-video progress lines, a summary per job and an overall summary (new
   downloaded, already downloaded, failed, previously failed, no longer in
-  playlist, time). "Up to date, nothing to download" when nothing is new.
-- Optional `<tag>/<playlist title>/` subfolder (`use_playlist_subfolder`).
+  playlist, time), with paths shown relative to the current folder.
+- Exit codes: 0 ok, 1 some downloads failed, 2 config error, 3 another
+  instance running, 4 metadata unusable, 130 interrupted.
 
-## [0.0.9] - 2026-10-23
+### Project
 
-### Added
-
-- yt-dlp backend (`backend.py`): flat playlist listing (Mix playlists
-  capped at `mix_limit`), exact upload-date lookups for date ordering, and
-  the per-video download worker. mp3 uses `bestaudio` + FFmpegExtractAudio
-  at `audio_quality`; mp4 prefers the best stream at or below
-  `max_resolution` (falling back to the closest one), merged into mp4.
-- JavaScript runtime selection (`js_runtime: auto` = deno, node, bun).
-- Errors caused by YouTube rate limiting or bot checks carry a hint to wait,
-  lower `max_workers` or use `cookies_file`.
-
-## [0.0.8] - 2026-10-23
-
-### Changed
-
-- Code moved from one large `downloader.py` into the
-  `src/youtube_downloader/` package (`version`, `config`, `metadata`,
-  `sync`, `cli`). `downloader.py` is now a small entry point, so
-  `python downloader.py ...` works as before.
-
-## [0.0.7] - 2026-10-23
-
-### Added
-
-- Sync planner: sorts the listing by `order`, keeps the first `count`, and
-  sorts each selected video into download (new, retry, file missing,
-  forced), already downloaded, or previously failed, matching on video ID
-  and format. Videos that dropped out of the playlist are reported as
-  "no longer in playlist" and never touched.
-
-## [0.0.6] - 2026-10-23
-
-### Added
-
-- Metadata store: one JSON file (`schema_version` 1) shared by all jobs,
-  with records kept per video ID and per format, atomic writes (temp file,
-  fsync, rename), a flush after every recorded video, and a lock file so two
-  instances can't write at once.
-- Corrupt or unreadable metadata is moved to `metadata.json.bak.<timestamp>`
-  with a warning and the run starts fresh. Read-only commands leave the file
-  alone. A file from a newer schema is refused instead of overwritten.
-
-## [0.0.5] - 2026-10-23
-
-### Fixed
-
-- The uv dependency-resolve test is skipped instead of failing when PyPI
-  can't be reached.
-
-## [0.0.4] - 2026-10-23
-
-### Added
-
-- Config loader: `defaults` + `jobs` YAML with merge order CLI > job >
-  defaults > built-in, validation of every key and value (all problems are
-  reported at once, naming the job), unknown-key suggestions, tag
-  sanitizing with duplicate detection, YouTube URL checks per mode, and the
-  `order` setting (playlist, newest, oldest, title_asc, title_desc,
-  shortest, longest).
-- Mix/radio playlists (`list=RD...`) are accepted as normal playlists;
-  `mix_limit` caps how many entries are read since mixes never end.
-
-## [0.0.3] - 2026-10-23
-
-### Added
-
-- `CHANGELOG.md` and `SECURITY.md`.
-- Test that fails when `manifest.json` has a version without a changelog entry.
-
-## [0.0.2] - 2026-10-23
-
-### Added
-
-- `setup.sh`: creates `.venv` with uv, installs dependencies and checks for
-  ffmpeg/ffprobe and a JavaScript runtime. Options: `--dev`,
-  `--install-ffmpeg`, `--recreate`, `--python`.
-
-## [0.0.1] - 2026-10-23
-
-### Added
-
-- Project scaffold: `manifest.json`, `requirements.txt`,
-  `requirements-dev.txt`, `.gitignore` rules for downloads, metadata, lock
-  files and cookies, and `downloader.py --version`.
+- `setup.sh` sets up `.venv` with uv and checks for ffmpeg/ffprobe and a
+  JavaScript runtime.
+- Code in `src/youtube_downloader/`, with `downloader.py` as the entry
+  point.
+- `README.md`, `SECURITY.md`, this changelog, and `manifest.json` holding
+  the version (`python downloader.py --version`).
+- Offline test suite (fake yt-dlp with the real process pool, metadata file
+  and lock) plus live tests against YouTube.
