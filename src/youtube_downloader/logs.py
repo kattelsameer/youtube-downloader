@@ -27,7 +27,20 @@ class _BelowLevel(logging.Filter):
         return record.levelno < self.level
 
 
+def make_output_safe() -> None:
+    """Never crash on characters the console can't show (emoji titles on a
+    cp1252 Windows console, say): print them as \\U escapes instead."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="backslashreplace")
+            except (ValueError, OSError):  # e.g. a closed or unusual stream
+                pass
+
+
 def configure_logging(level: str = "INFO") -> logging.Logger:
+    make_output_safe()
     logger = logging.getLogger(LOGGER_NAME)
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
