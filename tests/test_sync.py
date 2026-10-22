@@ -1,7 +1,7 @@
 """Incremental sync rules, tested on the pure planner (no network, no files written)."""
 import pytest
 
-import downloader as d
+import youtube_downloader.sync as d
 
 
 def entries(*ids, **fields):

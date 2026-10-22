@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-import downloader as d
+import youtube_downloader.config as d
 
 VIDEO = "https://www.youtube.com/watch?v=10azSRvOv_E"
 PLAYLIST = "https://www.youtube.com/playlist?list=PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T"
