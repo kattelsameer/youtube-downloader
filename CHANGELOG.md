@@ -9,6 +9,23 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-10-23
+
+### Added
+
+- Job runner: jobs run one after another; each job's videos download in a
+  `ProcessPoolExecutor` (`max_workers`), each worker with its own
+  YoutubeDL. Only the main process writes the metadata file, flushing
+  after every finished video.
+- Ctrl+C cancels queued downloads, stops running workers and keeps
+  everything finished so far; the next run continues with the rest.
+- A failing video or job never stops the others; a crashed worker is
+  recorded as a failure.
+- Per-video progress lines, per-job summaries and an overall summary (new
+  downloaded, already downloaded, failed, previously failed, no longer in
+  playlist, time). "Up to date, nothing to download" when nothing is new.
+- Optional `<tag>/<playlist title>/` subfolder (`use_playlist_subfolder`).
+
 ## [0.0.9] - 2026-10-23
 
 ### Added
