@@ -159,7 +159,7 @@ def test_clean_error():
 
 def fake_download(ydl, url, content=b"\0" * 1234):
     """Behaves like yt-dlp with `paths`: work in temp, then move to home."""
-    name = (ydl.opts["outtmpl"]["default"].replace("%(title)s", "Chaahat")
+    name = (ydl.opts["outtmpl"]["default"].replace("%(title)s", "Chaahat").replace("%(uploader)s", "Artist")
             .replace("%(id)s", "10azSRvOv_E").replace("%(ext)s", ydl.opts["final_ext"]))
     temp = Path(ydl.opts["paths"]["temp"]) / name
     home = Path(ydl.opts["paths"]["home"]) / name
@@ -245,6 +245,29 @@ def test_successful_force_redownload_replaces_the_old_file(tmp_path, fake_ydl):
     assert result["ok"] and result["file_path"] == "t/Chaahat [10azSRvOv_E].mp3"
     assert old.read_bytes() == b"new file"
     assert sorted(p.name for p in (tmp_path / "t").iterdir()) == ["Chaahat [10azSRvOv_E].mp3"]
+
+
+def test_template_subfolders_survive_staging_and_force(tmp_path, fake_ydl):
+    template = "%(uploader)s/%(title)s [%(id)s].%(ext)s"
+    staging = tmp_path / "t" / ".incomplete" / "10azSRvOv_E"
+    (staging / "Artist").mkdir(parents=True)
+    (staging / "Artist" / "Chaahat [10azSRvOv_E].mp3").write_bytes(b"trunc")  # stale, nested
+    seen = {}
+
+    def check_then_download(ydl, url):
+        seen["stale"] = (staging / "Artist" / "Chaahat [10azSRvOv_E].mp3").exists()
+        return fake_download(ydl, url)
+
+    fake_ydl.responses[VIDEO] = check_then_download
+    result = backend.download_worker(make_task(tmp_path, filename_template=template))
+    assert seen["stale"] is False and result["file_path"] == "t/Artist/Chaahat [10azSRvOv_E].mp3"
+
+    fake_ydl.responses[VIDEO] = lambda ydl, url: fake_download(ydl, url, content=b"forced")
+    result = backend.download_worker(make_task(tmp_path, force=True, filename_template=template))
+    assert result["file_path"] == "t/Artist/Chaahat [10azSRvOv_E].mp3"
+    assert (tmp_path / "t" / "Artist" / "Chaahat [10azSRvOv_E].mp3").read_bytes() == b"forced"
+    assert sorted(p.relative_to(tmp_path).as_posix() for p in (tmp_path / "t").rglob("*")) == [
+        "t/Artist", "t/Artist/Chaahat [10azSRvOv_E].mp3"]
 
 
 def test_worker_reports_download_error(tmp_path, fake_ydl):

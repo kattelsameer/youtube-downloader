@@ -223,7 +223,7 @@ def clear_stale_outputs(staging: Path) -> None:
     """
     if not staging.is_dir():
         return
-    for item in staging.iterdir():
+    for item in staging.rglob("*"):  # templates may create subfolders
         if item.is_file() and not item.name.endswith(RESUMABLE_SUFFIXES):
             item.unlink()
 
@@ -231,9 +231,13 @@ def clear_stale_outputs(staging: Path) -> None:
 def remove_staging(staging: Path, everything: bool) -> None:
     if everything:
         shutil.rmtree(staging, ignore_errors=True)
+    elif staging.is_dir():
+        for folder in sorted((p for p in staging.rglob("*") if p.is_dir()), reverse=True):
+            with contextlib.suppress(OSError):
+                folder.rmdir()  # only succeeds when empty
     for folder in (staging, staging.parent):
         with contextlib.suppress(OSError):
-            folder.rmdir()  # only succeeds when empty
+            folder.rmdir()
 
 
 def build_download_options(task: dict) -> dict:
@@ -315,7 +319,8 @@ def download_worker(task: dict) -> dict:
         if not path or not Path(path).is_file():
             raise RuntimeError("download finished but the output file was not found")
         if replaces_existing(task):
-            destination = Path(task["target_dir"]) / Path(path).name
+            # keep any subfolders the filename template created
+            destination = Path(task["target_dir"]) / Path(path).relative_to(staging)
             destination.parent.mkdir(parents=True, exist_ok=True)
             os.replace(path, destination)  # same file system: atomic swap
             path = str(destination)
