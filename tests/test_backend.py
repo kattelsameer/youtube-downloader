@@ -100,16 +100,33 @@ def test_embed_options(tmp_path):
     assert [pp["key"] for pp in opts["postprocessors"]] == ["FFmpegExtractAudio"]
 
 
+COOKIES = "# Netscape HTTP Cookie File\n.youtube.com\tTRUE\t/\tTRUE\t2000000000\tPREF\tf6=40000000\n"
+
+
 def test_network_options(tmp_path):
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(COOKIES)
     opts = backend.build_download_options(make_task(
-        tmp_path, cookies_file="/c.txt", proxy="socks5://127.0.0.1:1080", rate_limit=2048,
+        tmp_path, cookies_file=str(cookies), proxy="socks5://127.0.0.1:1080", rate_limit=2048,
         retries=7, socket_timeout=12, concurrent_fragment_downloads=8))
-    assert opts["cookiefile"] == "/c.txt" and opts["proxy"] == "socks5://127.0.0.1:1080"
+    assert opts["cookiefile"].getvalue() == COOKIES and opts["proxy"] == "socks5://127.0.0.1:1080"
     assert opts["ratelimit"] == 2048 and opts["socket_timeout"] == 12
     assert opts["retries"] == opts["fragment_retries"] == opts["extractor_retries"] == 7
     assert opts["concurrent_fragment_downloads"] == 8
     opts = backend.build_download_options(make_task(tmp_path))
     assert "cookiefile" not in opts and "proxy" not in opts and "ratelimit" not in opts
+
+
+def test_cookies_file_is_used_but_never_written(tmp_path):
+    """A real YoutubeDL saves its cookie jar on close; the user's file must not change."""
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(COOKIES)
+    before = (cookies.read_bytes(), cookies.stat().st_mtime_ns)
+    opts = backend.base_ydl_options(make_settings(cookies_file=str(cookies)))
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        assert [c.name for c in ydl.cookiejar] == ["PREF"]  # loaded
+        ydl.cookiejar.set_cookie(next(iter(ydl.cookiejar)))  # touched, as during a download
+    assert (cookies.read_bytes(), cookies.stat().st_mtime_ns) == before
 
 
 def test_js_runtime_choice(monkeypatch):

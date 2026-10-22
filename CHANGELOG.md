@@ -9,6 +9,15 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.18] - 2026-10-23
+
+### Fixed
+
+- yt-dlp writes its cookie jar back to `cookies_file` when it closes. With
+  several workers (and `--dry-run` too) that rewrote the user's cookies file
+  concurrently and could garble it. Each yt-dlp instance now gets an
+  in-memory copy and the file is never written.
+
 ## [0.0.17] - 2026-10-23
 
 ### Fixed
