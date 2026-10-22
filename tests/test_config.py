@@ -277,6 +277,20 @@ def test_every_problem_reported_at_once(tmp_path):
     assert len(errors) == 4
 
 
+def test_cookies_file_checked_even_when_the_job_has_other_errors(tmp_path):
+    data = base_config()
+    data["jobs"][0].update(format="ogg", cookies_file="missing.txt")
+    errors = errors_for(tmp_path, data)
+    assert any("format: must be one of" in e for e in errors)
+    assert any("jobs[0] (tag 'song-single'): cookies_file not found" in e for e in errors)
+
+
+def test_youtube_music_curated_playlists_are_not_mixes():
+    assert d.is_mix_playlist("RD10azSRvOv_E") and d.is_mix_playlist("RDMM")
+    assert not d.is_mix_playlist("RDCLAK5uy_kmPRjHDECIcuVwnKsx2Ng7fyNgFKWNJFs")
+    assert not d.is_mix_playlist("PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T") and not d.is_mix_playlist(None)
+
+
 def test_cookies_file_must_exist(tmp_path):
     errors = errors_for(tmp_path, base_config(cookies_file="cookies.txt"))
     assert len(errors) == 3 and all("cookies_file not found" in e for e in errors)
@@ -291,9 +305,21 @@ def test_bad_cli_override(tmp_path):
     assert any(e.startswith("command line: max_workers:") for e in errors)
 
 
-def test_filename_template_must_stay_inside_folder(tmp_path):
-    errors = errors_for(tmp_path, base_config(filename_template="../%(title)s.%(ext)s"))
-    assert errors and "inside the job folder" in errors[0]
+@pytest.mark.parametrize("template", [
+    "../%(title)s.%(ext)s", "/tmp/%(title)s.%(ext)s", "D:%(title)s.%(ext)s",
+    "C:\\music\\%(title)s.%(ext)s", "..\\%(title)s.%(ext)s",
+])
+def test_filename_template_must_stay_inside_folder(tmp_path, template):
+    errors = errors_for(tmp_path, base_config(filename_template=template))
+    assert len(errors) == 1 and "inside the job folder" in errors[0]
+
+
+def test_filename_template_with_subfolder_is_fine(tmp_path):
+    cfg = d.load_config(write_config(tmp_path, base_config(filename_template="%(uploader)s/%(title)s.%(ext)s")))
+    assert cfg.jobs[0].settings["filename_template"] == "%(uploader)s/%(title)s.%(ext)s"
+
+
+def test_filename_template_needs_ext(tmp_path):
     errors = errors_for(tmp_path, base_config(filename_template="%(title)s.mp3"))
     assert errors and "%(ext)s" in errors[0]
 

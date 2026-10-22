@@ -6,7 +6,7 @@ import difflib
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from urllib.parse import parse_qs, urlparse
 
 import yaml
@@ -181,7 +181,9 @@ def _v_template(value):
     text = _v_str(value)
     if "%(ext)s" not in text:
         raise ValueError("must contain %(ext)s, e.g. '%(title)s [%(id)s].%(ext)s'")
-    if Path(text).is_absolute() or ".." in Path(text).parts:
+    windows = PureWindowsPath(text)  # also catches C:name and ..\\ on any OS
+    if (Path(text).is_absolute() or windows.is_absolute() or windows.drive
+            or ".." in Path(text).parts or ".." in windows.parts):
         raise ValueError("must be a relative file name inside the job folder")
     return text
 
@@ -259,8 +261,9 @@ def is_collection_url(url: str) -> bool:
 
 
 def is_mix_playlist(playlist_id: str | None) -> bool:
-    """Auto-generated Mix/radio playlists change on every fetch and never end."""
-    return bool(playlist_id) and playlist_id.startswith("RD")
+    """Auto-generated Mix/radio playlists change on every fetch and never end.
+    RDCLAK5uy_ IDs are YouTube Music's curated playlists, which are finite."""
+    return bool(playlist_id) and playlist_id.startswith("RD") and not playlist_id.startswith("RDCLAK5uy_")
 
 
 def _check_keys(section: dict, allowed, label: str, errors: list, hints: dict | None = None):
@@ -414,13 +417,12 @@ def load_config(path, overrides: dict | None = None, cwd: Path | None = None) ->
                 warnings.append(f"{label}: count is ignored in single mode")
 
         settings = {**defaults, **_validate_settings(job_raw, label, errors), **cli}
-        if len(errors) > before:
-            continue
         for key in ("output_dir", "cookies_file"):
             if settings[key] and key not in cli:
                 settings[key] = _resolve_path(settings[key], base)
         if settings["cookies_file"] and not Path(settings["cookies_file"]).is_file():
             errors.append(f"{label}: cookies_file not found: {settings['cookies_file']}")
+        if len(errors) > before:
             continue
         jobs.append(Job(tag=tag, name=str(raw_tag), mode=mode, url=url, enabled=enabled,
                         count=count, settings=settings))
