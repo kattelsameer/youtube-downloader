@@ -112,6 +112,17 @@ def test_js_runtime_choice(monkeypatch):
     assert backend.js_runtimes_option("auto") == {}
 
 
+def test_retry_chatter_is_debug_only(caplog):
+    logger = backend.YtdlLogger("[t] ")
+    with caplog.at_level("DEBUG", logger="ytdl"):
+        logger.warning("[youtube:tab] HTTP Error 404: Not Found. Retrying (1/3)...")
+        logger.warning("[youtube:tab] PLx: Unable to download webpage. Giving up after 3 retries")
+        logger.warning("\x1b[0;33mWARNING:\x1b[0m [youtube] YouTube said: INFO - 1 unavailable video is hidden")
+    levels = [(r.levelname, r.getMessage()) for r in caplog.records]
+    assert [lvl for lvl, _ in levels] == ["DEBUG", "DEBUG", "WARNING"]
+    assert levels[2][1] == "[t] [youtube] YouTube said: INFO - 1 unavailable video is hidden"
+
+
 def test_clean_error():
     raw = "\x1b[0;31mERROR:\x1b[0m [youtube] abc: Video unavailable.\n  This video is private"
     assert backend.clean_error(raw) == "[youtube] abc: Video unavailable. This video is private"

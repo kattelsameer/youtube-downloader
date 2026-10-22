@@ -216,8 +216,9 @@ def test_lock_blocks_a_second_instance(tmp_path):
     path = tmp_path / "metadata.json"
     holder = start_lock_holder(path)
     try:
-        with pytest.raises(d.LockError, match=r"another instance is already running \(pid \d+"):
+        with pytest.raises(d.LockError, match=r"another instance is already running \(pid \d+") as info:
             d.MetadataLock(path).acquire()
+        assert info.value.path == path.with_name("metadata.json.lock")
     finally:
         holder.kill()
         holder.wait()
