@@ -6,6 +6,7 @@ named in $YTDL_FAKE_STATE, which tests rewrite between runs:
 
     {"playlists": {url: {"id", "title", "entries": [{"id", "title", ...}]}},
      "fail": [video ids], "crash": [video ids], "sleep": seconds,
+     "sleeps": {video id: seconds}, "dates": {video id: YYYYMMDD},
      "calls": "path/to/calls.jsonl"}
 """
 
@@ -43,7 +44,7 @@ def fake_download(task: dict) -> dict:
     video_id = task["video_id"]
     if video_id in state.get("crash", []):
         os._exit(1)  # simulate a worker killed by the OS
-    time.sleep(state.get("sleep", 0))
+    time.sleep(state.get("sleeps", {}).get(video_id, state.get("sleep", 0)))
     if state.get("calls"):
         with open(state["calls"], "a") as fh:
             fh.write(json.dumps({"id": video_id, "pid": os.getpid(), "start": started,

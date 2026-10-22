@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import signal
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -244,40 +244,60 @@ def _download(job: Job, plan: SyncPlan, listing: Listing, store: MetadataStore,
     pool = ProcessPoolExecutor(max_workers=workers, initializer=_init_worker,
                                initargs=(job.settings["log_level"],))
     done = 0
+    unfinished: list[dict] = []
     try:
         futures = {pool.submit(worker, task): task for task in tasks}
-        for future in as_completed(futures):
-            task = futures[future]
-            try:
-                result = future.result()
-            except BrokenProcessPool:
-                result = {"video_id": task["video_id"], "ok": False,
-                          "error": "worker process crashed (killed or out of memory)"}
-            except Exception as exc:  # noqa: BLE001 - a bad result must not stop the job
-                result = {"video_id": task["video_id"], "ok": False, "error": backend.clean_error(exc)}
-            done += 1
-            if not result.get("title"):
-                result["title"] = task["title"]  # failed before yt-dlp knew it; use the listing's
-            record = store.record_result(job, result)  # flushed to disk right away
-            label = f"{record.get('title') or labels[task['video_id']].rsplit(' [', 1)[0]} [{task['video_id']}]"
-            if result["ok"]:
-                summary.downloaded += 1
-                emit(f"[{done}/{total}] downloaded  {label}  "
-                     f"({format_size(result.get('file_size'))} in {result.get('elapsed', 0):.1f}s)")
-            else:
-                summary.failed += 1
-                kept = " (previous file kept)" if record["status"] == STATUS_DOWNLOADED else ""
-                emit(f"[{done}/{total}] FAILED      {label}: {result['error']}{kept}")
-                hint = backend.blocked_hint(result["error"])
-                if hint:
-                    emit(f"              hint: {hint}")
+        pending = set(futures)
+        while pending:
+            # Poll instead of blocking forever, so Ctrl+C gets through on Windows too.
+            finished, pending = wait(pending, timeout=0.5, return_when=FIRST_COMPLETED)
+            for future in finished:
+                task = futures[future]
+                try:
+                    result = future.result()
+                except BrokenProcessPool:
+                    # A worker died (killed, out of memory). Every unfinished
+                    # video gets this error, tried or not, so record nothing:
+                    # the next run treats them as new.
+                    unfinished.append(task)
+                    continue
+                except Exception as exc:  # noqa: BLE001 - a bad result must not stop the job
+                    result = {"video_id": task["video_id"], "ok": False, "error": backend.clean_error(exc)}
+                done += 1
+                _record(job, store, task, result, labels, done, total, summary)
     except KeyboardInterrupt:
         summary.interrupted = True
         emit(f"\nInterrupted: stopping workers. {done}/{total} finished video(s) are saved "
              f"in the metadata; the rest will be picked up on the next run.")
         _stop_pool(pool)
+    except BaseException:
+        _stop_pool(pool)  # e.g. the metadata file can't be written: don't wait for downloads
+        raise
     finally:
         pool.shutdown(wait=True, cancel_futures=True)
+    if unfinished:
+        summary.error = (f"a worker process crashed (killed or out of memory); {len(unfinished)} "
+                         f"video(s) were not finished and will be tried again on the next run")
+        log.error("[%s] %s", job.tag, summary.error)
+
+
+def _record(job: Job, store: MetadataStore, task: dict, result: dict, labels: dict,
+            done: int, total: int, summary: JobSummary) -> None:
+    if not result.get("title"):
+        result["title"] = task["title"]  # failed before yt-dlp knew it; use the listing's
+    record = store.record_result(job, result)  # flushed to disk right away
+    label = f"{record.get('title') or labels[task['video_id']].rsplit(' [', 1)[0]} [{task['video_id']}]"
+    if result["ok"]:
+        summary.downloaded += 1
+        emit(f"[{done}/{total}] downloaded  {label}  "
+             f"({format_size(result.get('file_size'))} in {result.get('elapsed', 0):.1f}s)")
+    else:
+        summary.failed += 1
+        kept = " (previous file kept)" if record["status"] == STATUS_DOWNLOADED else ""
+        emit(f"[{done}/{total}] FAILED      {label}: {result['error']}{kept}")
+        hint = backend.blocked_hint(result["error"])
+        if hint:
+            emit(f"              hint: {hint}")
 
 
 def print_job_summary(summary: JobSummary) -> None:

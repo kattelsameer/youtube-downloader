@@ -9,6 +9,19 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.16] - 2026-10-23
+
+### Fixed
+
+- When one worker process crashed, every queued video was recorded as
+  failed and skipped on later runs. Unfinished videos are now left
+  unrecorded, so the next run tries them again; the job reports the crash.
+- An unexpected error while recording a result (e.g. disk full) now stops
+  the running downloads instead of waiting for them, and other jobs still
+  run.
+- The download loop polls for results, so Ctrl+C also gets through on
+  Windows.
+
 ## [0.0.15] - 2026-10-23
 
 ### Fixed

@@ -313,6 +313,9 @@ Every run of a job does this:
 
 Details:
 
+- **A crashed worker process** (killed by the OS, out of memory) breaks the
+  pool: the job stops, and the videos that didn't finish are left unrecorded
+  so the next run downloads them as new. They are not marked as failed.
 - **Failed videos** are recorded with `status: failed`, `last_error` and
   `attempts`. Later runs report them as "previously failed" and skip them,
   unless you pass `--retry-failed` or set `retry_failed: true`.
