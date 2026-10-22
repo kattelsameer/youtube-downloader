@@ -286,3 +286,20 @@ def test_second_instance_is_locked_out(env):
     assert first.returncode == cli.EXIT_OK, err1
     assert sorted(env.meta()["jobs"]["songs"]["videos"]) == [vid(1), vid(2), vid(3)]
     assert len(fakes.calls(env.state_path)) == 3  # the second instance downloaded nothing
+
+
+def test_output_survives_a_non_utf8_console(env):
+    """Windows consoles and redirected output often use cp1252; emoji titles must not crash."""
+    env.state["playlists"][PLAYLIST]["title"] = "🎷 Jazz"
+    env.state["playlists"][PLAYLIST]["entries"][0]["title"] = "Night Out 🇸🇪"
+    env.write()
+    proc = subprocess.run(
+        [sys.executable, str(FAKE_CLI), "--config", str(env.config_path)],
+        capture_output=True, env={**os.environ, fakes.STATE_ENV: str(env.state_path),
+                                  "PYTHONIOENCODING": "cp1252"},
+        timeout=60,
+    )
+    out = proc.stdout.decode("cp1252")
+    assert proc.returncode == cli.EXIT_OK, proc.stderr.decode("cp1252", "replace")
+    assert "Playlist: \\U0001f3b7 Jazz" in out
+    assert len(env.meta()["jobs"]["songs"]["videos"]) == 3
