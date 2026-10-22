@@ -7,8 +7,8 @@ when a playlist gets new videos, the next run downloads only those.
 
 ```text
 $ python downloader.py --config config.yaml
-== song-playlist (playlist, mp3) ==
-Playlist: 🎷 Copyright Free Jazz Music - 13 video(s) listed, order playlist, count 3 -> 3 selected
+== lofi-songs (playlist, mp3) ==
+Playlist: Lofi Beats - 24 video(s) listed, order playlist, count 10 -> 10 selected
 Up to date, nothing to download
 ```
 
@@ -29,7 +29,7 @@ Use it only for content you are allowed to download.
 - [Project layout](#project-layout)
 - [Tests](#tests)
 - [Versioning and changelog](#versioning-and-changelog)
-- [Git workflow](#git-workflow)
+- [Contributing](#contributing)
 
 ## Setup
 
@@ -200,11 +200,13 @@ downloads/
   metadata.json            shared by all jobs
   metadata.json.lock       held while a run is active
   song-single/
-    Chaahat - Official 4K Version ... [10azSRvOv_E].mp3
+    Song Title [aBcDeFgHiJk].mp3
   song-playlist/
-    'Night Out' by @LiQWYD ... [FqxZwBLm_vk].mp3
+    First Song [kLmNoPqRsTu].mp3
+    Second Song [vWxYz012345].mp3
   video-playlist/
-    🎷 Copyright Free Jazz Music/   (only with use_playlist_subfolder: true)
+    Playlist Title/                (only with use_playlist_subfolder: true)
+      Some Video [6789aBcDeFg].mp4
 ```
 
 Every job writes into `<output_dir>/<tag>/`. With `use_playlist_subfolder:
@@ -224,28 +226,28 @@ been downloaded. yt-dlp's `download_archive` is not used.
 ```json
 {
   "schema_version": 1,
-  "app_version": "0.0.11",
-  "updated_at": "2026-10-22T19:05:07+00:00",
+  "app_version": "0.1.0",
+  "updated_at": "2026-01-15T18:30:12+00:00",
   "jobs": {
     "song-playlist": {
-      "url": "https://www.youtube.com/playlist?list=PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T",
+      "url": "https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxx",
       "mode": "playlist",
       "format": "mp3",
-      "playlist_id": "PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T",
-      "playlist_title": "🎷 Copyright Free Jazz Music",
-      "last_run": "2026-10-22T19:05:07+00:00",
+      "playlist_id": "PLxxxxxxxxxxxxxxxx",
+      "playlist_title": "Playlist Title",
+      "last_run": "2026-01-15T18:30:12+00:00",
       "videos": {
-        "FqxZwBLm_vk": {
+        "kLmNoPqRsTu": {
           "mp3": {
-            "title": "'Night Out' by @LiQWYD  🇸🇪 | Saxophone Vlog Music (No Copyright) 🎷",
-            "uploader": "BreakingCopyright — Royalty Free Music",
+            "title": "First Song",
+            "uploader": "Some Channel",
             "duration": 193,
-            "upload_date": "20190221",
+            "upload_date": "20240221",
             "format": "mp3",
-            "file_path": "song-playlist/'Night Out' by @LiQWYD  🇸🇪 ｜ Saxophone Vlog Music (No Copyright) 🎷 [FqxZwBLm_vk].mp3",
+            "file_path": "song-playlist/First Song [kLmNoPqRsTu].mp3",
             "file_size": 4638472,
             "status": "downloaded",
-            "downloaded_at": "2026-10-22T19:04:40+00:00",
+            "downloaded_at": "2026-01-15T18:29:40+00:00",
             "attempts": 1,
             "last_error": null
           }
@@ -253,11 +255,11 @@ been downloaded. yt-dlp's `download_archive` is not used.
       }
     }
   },
-  "upload_dates": { "FqxZwBLm_vk": "20190221" }
+  "upload_dates": { "kLmNoPqRsTu": "20240221" }
 }
 ```
 
-(A real record from a test run, shortened to one video. Timestamps are UTC.)
+(Example shortened to one video. Timestamps are UTC.)
 
 | Field | Meaning |
 |---|---|
@@ -367,8 +369,9 @@ use that.
   its own `max_workers`.
 - **`concurrent_fragment_downloads`** downloads several parts of one video at
   once, which speeds up segmented streams.
-- Measured on this machine: 3 mp3 tracks took 27.6s with `max_workers: 1`
-  and 10.6s with `max_workers: 3`.
+- Because downloads in a job overlap, a playlist finishes much faster with
+  `max_workers: 3` than with `1`. Much higher values make YouTube rate
+  limits more likely.
 - **Listing is cheap; `order: newest/oldest` is not**, at first. Sorting by
   date needs one metadata request per video. The dates are cached, so later
   runs only look up new videos.
@@ -426,7 +429,7 @@ tests/                      pytest suite (fakes.py replaces yt-dlp)
 config.yaml                 example config
 setup.sh                    environment setup with uv
 manifest.json               name, version, date
-CHANGELOG.md, SECURITY.md
+CHANGELOG.md, CONTRIBUTING.md, SECURITY.md
 ```
 
 ## Tests
@@ -446,7 +449,7 @@ scenario (re-run, growing playlist, removed video, failures and
 instances at once, several jobs in one file), and the CLI. Tests marked
 `live` need network access to YouTube.
 
-### Live checks to run yourself
+### Checking a real run
 
 ```bash
 python downloader.py --config config.yaml --dry-run
@@ -460,33 +463,19 @@ ffprobe -v error -show_entries stream=codec_name,width,height,bit_rate -of compa
 
 `manifest.json` holds the `name`, `version` (semantic versioning,
 `MAJOR.MINOR.PATCH`) and `updated` date; `python downloader.py --version`
-prints it. Every feature or fix branch bumps the version before it is merged
-into `develop` and adds an entry to [CHANGELOG.md](CHANGELOG.md):
+prints it. Every change bumps the version and adds an entry to
+[CHANGELOG.md](CHANGELOG.md):
 
-- During initial development, each merged change bumped the PATCH number
-  (0.0.1, 0.0.2, ...). 0.1.0 is the first release; its changelog entry
-  covers all of those builds.
-- From 0.1.0 on: a new feature bumps MINOR, a bug fix bumps PATCH, and a
-  breaking change to the config or metadata format bumps MAJOR (MINOR while
-  below 1.0.0) and is described in this README.
+- a new feature bumps MINOR,
+- a bug fix bumps PATCH,
+- a breaking change to the config or metadata format bumps MAJOR (MINOR
+  while below 1.0.0) and is described in this README.
 
-## Git workflow
+## Contributing
 
-- `develop` is the integration branch, `master` the release branch.
-  Releasing to `master` is done by hand by the maintainer.
-- Every change gets its own branch from `develop`: `feature/<name>` or
-  `fix/<name>`, built as small focused branches with small commits.
-- Nothing is committed directly on `develop` or `master`. The only commits
-  on `develop` are `--no-ff` merges of finished branches, which keep each
-  feature visible in the history.
-- A branch is merged only when its tests and the whole existing suite pass
-  and `manifest.json` has been bumped. Conflicts are resolved on the feature
-  branch by merging `develop` into it first.
-- A release is prepared on a `release-<version>` branch (for example
-  `release-0.1.0`) from `develop`: version bump and changelog, merged into
-  `develop` like any other branch. Merging into `master` is done by hand.
-- Commit messages are a single imperative subject line of at most 72
-  characters, with a short body only when needed, and no trailers.
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) describes the
+branch model, commit and test rules, and how releases are made. Report
+security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

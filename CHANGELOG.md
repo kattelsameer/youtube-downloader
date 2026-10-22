@@ -6,12 +6,7 @@ All notable changes to this project are documented here. The format follows
 fix bumps PATCH, and a breaking change to the config or metadata format bumps
 MAJOR (MINOR while below 1.0.0).
 
-## [Unreleased]
-
 ## [0.1.0] - 2026-10-23 - First release
-
-The development builds 0.0.1 to 0.0.21 are folded into this entry. The git
-history on `develop` has one merge per feature or fix.
 
 ### Configuration
 
