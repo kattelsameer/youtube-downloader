@@ -9,6 +9,16 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-10-23
+
+### Added
+
+- README: setup (uv, ffmpeg, JavaScript runtime), command line, config
+  reference, output layout, metadata file format, incremental sync rules
+  (including how `count` windows and Mix playlists behave), performance
+  notes, Ctrl+C, troubleshooting, versioning and git workflow.
+- Test that the README documents every setting and command-line flag.
+
 ## [0.0.13] - 2026-10-23
 
 ### Fixed
