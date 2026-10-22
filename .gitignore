@@ -218,3 +218,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- youtube-downloader ---
+# Downloaded media, sync state and lock files
+downloads/
+metadata.json
+*.json.bak.*
+*.json.lock
+*.part
+*.ytdl
+# Personal config: cookies and local overrides
+cookies*.txt
+*.cookies
+config.local.yaml
+*.local.yaml
