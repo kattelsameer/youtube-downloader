@@ -5,6 +5,9 @@ Modules:
     config    load, validate and merge config.yaml
     metadata  the shared metadata file (atomic writes, lock file, recovery)
     sync      decide what each job needs to download
+    backend   yt-dlp listing and the download worker
+    runner    run jobs: process pool, recording results, summaries
+    logs      logging setup for the main process and workers
     cli       command-line entry point (run via ../../downloader.py)
 """
 

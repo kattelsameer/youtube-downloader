@@ -242,6 +242,8 @@ def _download(job: Job, plan: SyncPlan, listing: Listing, store: MetadataStore,
             except Exception as exc:  # noqa: BLE001 - a bad result must not stop the job
                 result = {"video_id": task["video_id"], "ok": False, "error": backend.clean_error(exc)}
             done += 1
+            if not result.get("title"):
+                result["title"] = task["title"]  # failed before yt-dlp knew it; use the listing's
             record = store.record_result(job, result)  # flushed to disk right away
             label = f"{record.get('title') or labels[task['video_id']].rsplit(' [', 1)[0]} [{task['video_id']}]"
             if result["ok"]:

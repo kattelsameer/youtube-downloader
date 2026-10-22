@@ -9,6 +9,22 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-10-23
+
+### Added
+
+- Command line: `--config`, `--job` (repeatable), `--list`, `--dry-run`,
+  `--status`, `--retry-failed`, `--force`, `--format`, `--output-dir`,
+  `--max-workers`, `--version`. Exit codes: 0 ok, 1 some downloads
+  failed, 2 config error, 3 another instance running, 4 metadata unusable,
+  130 interrupted.
+- Example `config.yaml` with commented defaults and mp3/mp4 single and
+  playlist jobs (plus a disabled Mix job).
+
+### Fixed
+
+- Failed videos keep the title from the playlist listing in the metadata.
+
 ## [0.0.10] - 2026-10-23
 
 ### Added
