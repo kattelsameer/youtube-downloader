@@ -20,5 +20,15 @@ def test_every_cli_flag_is_documented():
 
 def test_readme_covers_required_topics():
     for heading in ("## Setup", "### ffmpeg", "## Config reference", "## The metadata file",
-                    "## Incremental sync rules", "## Command line", "## Git workflow"):
+                    "## Incremental sync rules", "## Command line", "## Contributing"):
         assert heading in README
+
+
+def test_contributing_guide_covers_the_workflow():
+    guide = (Path(__file__).resolve().parent.parent / "CONTRIBUTING.md").read_text()
+    for heading in ("## Branches", "## Making a change", "## Versioning", "## Commits",
+                    "## Pull requests"):
+        assert heading in guide
+    for branch in ("`develop`", "`master`", "`feature/<short-name>`", "`fix/<short-name>`"):
+        assert branch in guide
+    assert "## Releases" not in guide  # releases are a maintainer task

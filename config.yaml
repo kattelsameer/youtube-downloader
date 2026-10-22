@@ -60,6 +60,7 @@ defaults:
   # <output_dir>/metadata.json
   # metadata_file: downloads/metadata.json
 
+# Example jobs: replace them with your own.
 jobs:
   - tag: song-single            # folder name and metadata key, must be unique
     enabled: true               # false keeps the job but skips it
@@ -69,7 +70,7 @@ jobs:
 
   - tag: song-playlist
     mode: playlist
-    # Creative Commons jazz playlist (13 short tracks)
+    # a public Creative Commons jazz playlist
     url: https://www.youtube.com/playlist?list=PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T
     format: mp3
     count: 3                    # first 3 after `order`; "all" for everything
