@@ -62,6 +62,14 @@ def emit(message: str = "") -> None:
     print(message, flush=True)
 
 
+def display_path(path: Path) -> str:
+    """Path relative to the current folder when it is inside it."""
+    try:
+        return str(Path(path).resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return str(path)
+
+
 def format_duration(seconds: float) -> str:
     if seconds < 60:
         return f"{seconds:.1f}s"
@@ -157,7 +165,8 @@ def _print_plan_details(plan: SyncPlan, store: MetadataStore, job: Job, dry_run:
         emit(f"Would download ({len(plan.download)}):")
         for entry, reason in plan.download:
             emit(f"  + {entry.label}  ({reason})")
-        emit(f"Would skip, already downloaded ({len(plan.already)}):")
+        if plan.already:
+            emit(f"Would skip, already downloaded ({len(plan.already)}):")
         for entry in plan.already:
             emit(f"  = {_known_label(entry, store, job)}")
     if plan.previously_failed:
@@ -227,7 +236,7 @@ def _download(job: Job, plan: SyncPlan, listing: Listing, store: MetadataStore,
     } for entry, _ in plan.download]
     total = len(tasks)
     workers = min(job.settings["max_workers"], total)
-    emit(f"Downloading {total} video(s) with {workers} worker(s) into {folder}")
+    emit(f"Downloading {total} video(s) with {workers} worker(s) into {display_path(folder)}")
     for entry, reason in plan.download:
         if reason != REASON_NEW:
             emit(f"  ({reason}) {entry.label}")

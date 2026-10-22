@@ -9,6 +9,16 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-10-23
+
+### Fixed
+
+- Output shows paths relative to the current folder (download folder,
+  lock file) instead of absolute paths.
+- Dry runs no longer print an empty "already downloaded (0)" section.
+- yt-dlp's "Retrying (n/3)" and "Giving up" warnings are logged at debug
+  level; the final error is still reported once.
+
 ## [0.0.12] - 2026-10-23
 
 ### Fixed

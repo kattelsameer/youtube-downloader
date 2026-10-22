@@ -273,6 +273,7 @@ def test_second_instance_is_locked_out(env):
 
     assert second.returncode == cli.EXIT_LOCKED
     assert "another instance is already running (pid" in err2
+    assert "lock file: out/metadata.json.lock" in err2  # relative to the current folder
     assert first.returncode == cli.EXIT_OK, err1
     assert sorted(env.meta()["jobs"]["songs"]["videos"]) == [vid(1), vid(2), vid(3)]
     assert len(fakes.calls(env.state_path)) == 3  # the second instance downloaded nothing

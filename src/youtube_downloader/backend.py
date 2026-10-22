@@ -24,6 +24,7 @@ from .sync import Entry, Listing
 log = logging.getLogger("ytdl")
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+RETRY_NOISE_RE = re.compile(r"Retrying \(\d+/\d+\)|Giving up after \d+ retries")
 MAX_ERROR_LEN = 500
 
 
@@ -73,7 +74,9 @@ class YtdlLogger:
     info = debug
 
     def warning(self, msg: str) -> None:
-        log.warning("%s%s", self.prefix, ANSI_RE.sub("", msg).removeprefix("WARNING: "))
+        msg = ANSI_RE.sub("", msg).removeprefix("WARNING: ")
+        level = logging.DEBUG if RETRY_NOISE_RE.search(msg) else logging.WARNING
+        log.log(level, "%s%s", self.prefix, msg)
 
     def error(self, msg: str) -> None:
         log.debug("%s%s", self.prefix, ANSI_RE.sub("", msg))

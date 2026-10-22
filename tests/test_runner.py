@@ -349,3 +349,14 @@ def test_parallel_downloads_overlap(world):
     assert parallel_wall < serial_wall
     print(f"\n  max_workers=1: {serial_wall:.2f}s wall, downloads span {span(serial):.2f}s"
           f"\n  max_workers=3: {parallel_wall:.2f}s wall, downloads span {span(parallel):.2f}s")
+
+
+def test_output_uses_relative_paths_and_skips_empty_sections(world, monkeypatch):
+    monkeypatch.chdir(world.tmp)
+    world.set_playlist([vid(1)])
+    world.run(dry_run=True)
+    assert "Would download (1):" in world.output
+    assert "already downloaded (0)" not in world.output
+    world.run()
+    assert "Downloading 1 video(s) with 1 worker(s) into out/songs\n" in world.output
+    assert str(world.tmp) not in world.output

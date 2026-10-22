@@ -50,6 +50,10 @@ class MetadataError(Exception):
 class LockError(Exception):
     """Another instance of the tool holds the metadata lock."""
 
+    def __init__(self, message: str, path: Path):
+        super().__init__(message)
+        self.path = path
+
 
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
@@ -99,7 +103,7 @@ class MetadataLock:
                 holder = fh.read().strip()
             fh.close()
             detail = f" ({holder})" if holder else ""
-            raise LockError(f"another instance is already running{detail}; lock file: {self.path}") from None
+            raise LockError(f"another instance is already running{detail}", self.path) from None
         fh.seek(0)
         fh.truncate()
         fh.write(f"pid {os.getpid()} since {utc_now()}\n")
