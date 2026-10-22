@@ -49,7 +49,8 @@ def test_requirements_resolve_with_uv(tmp_path):
         capture_output=True, text=True,
         env={**os.environ, "UV_CACHE_DIR": str(tmp_path / "uv-cache")},
     )
-    if out.returncode != 0 and "network" in out.stderr.lower():
-        pytest.skip("no network for uv")
+    offline_signs = ("network", "request failed", "tunnel error", "dns error", "connect")
+    if out.returncode != 0 and any(sign in out.stderr.lower() for sign in offline_signs):
+        pytest.skip("PyPI not reachable")
     assert out.returncode == 0, out.stderr
     assert "yt-dlp" in out.stdout and "pyyaml" in out.stdout.lower()
