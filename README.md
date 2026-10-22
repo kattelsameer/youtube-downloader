@@ -167,7 +167,7 @@ is relative to the current folder.
 | `skip_existing` | `true` | If the output file already exists on disk, record it instead of downloading it again. |
 | `verify_files` | `true` | If a video is recorded as downloaded but its file is gone, download it again. |
 | `retry_failed` | `false` | Retry previously failed videos (same as `--retry-failed`). |
-| `cookies_file` | `null` | Netscape `cookies.txt` for age-restricted videos or bot checks. |
+| `cookies_file` | `null` | Netscape `cookies.txt` for age-restricted videos or bot checks. Only read, never written: yt-dlp gets an in-memory copy. |
 | `proxy` | `null` | Proxy URL, e.g. `socks5://127.0.0.1:1080`. |
 | `embed_metadata` | `true` | Write title/artist tags into the file. |
 | `embed_thumbnail` | `false` | Embed the thumbnail as cover art. |
@@ -389,7 +389,9 @@ rate-limiting your network. The tool adds a hint to these errors. Wait a
 while, lower `max_workers`, or export your YouTube cookies to a
 `cookies.txt` file (for example with a "Get cookies.txt" browser extension)
 and set `cookies_file`. Treat that file like a password; see
-[SECURITY.md](SECURITY.md).
+[SECURITY.md](SECURITY.md). The tool never writes to it, so cookies that
+YouTube refreshes during a run are not saved; export the file again if
+YouTube starts asking you to sign in.
 
 **"No supported JavaScript runtime could be found".** Install deno or node,
 or set `js_runtime` to the one you have.

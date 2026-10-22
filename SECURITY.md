@@ -23,7 +23,9 @@ listed in `CHANGELOG.md`.
 **Cookies files are passwords.** `cookies_file` contains a logged-in YouTube
 session. Keep it out of the repository (names matching `cookies*.txt` and
 `*.cookies` are gitignored), restrict it with `chmod 600`, and log out of the
-browser session to invalidate it if it leaks.
+browser session to invalidate it if it leaks. The tool only reads this file: every yt-dlp
+instance gets an in-memory copy, so parallel downloads can't overwrite or
+garble it.
 
 **Keep credentials out of `config.yaml`.** A `proxy` URL can contain a user name
 and password. Put such settings in a personal copy such as `config.local.yaml`
