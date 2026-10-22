@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -42,10 +43,11 @@ def test_setup_script_fails_clearly_without_uv(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not installed")
-def test_requirements_resolve_with_uv():
+def test_requirements_resolve_with_uv(tmp_path):
     out = subprocess.run(
         ["uv", "pip", "compile", "--quiet", "--no-header", str(ROOT / "requirements.txt")],
         capture_output=True, text=True,
+        env={**os.environ, "UV_CACHE_DIR": str(tmp_path / "uv-cache")},
     )
     if out.returncode != 0 and "network" in out.stderr.lower():
         pytest.skip("no network for uv")
