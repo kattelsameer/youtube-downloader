@@ -1,0 +1,4 @@
+# Runtime dependencies. ffmpeg/ffprobe are system packages (see README).
+# yt-dlp[default] also pulls in yt-dlp-ejs, needed for YouTube's JS challenges.
+yt-dlp[default]>=2026.10.21
+PyYAML>=6.0
