@@ -9,6 +9,14 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.21] - 2026-10-23
+
+### Fixed
+
+- On a console that can't show some characters (e.g. Windows cp1252 or
+  redirected output), an emoji in a title crashed the job with a
+  `UnicodeEncodeError`. Such characters are now printed as `\U` escapes.
+
 ## [0.0.20] - 2026-10-23
 
 ### Fixed
