@@ -9,6 +9,19 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.15] - 2026-10-23
+
+### Fixed
+
+- A video interrupted during mp3 conversion could leave a truncated `.mp3`
+  that the next run accepted as finished. Downloads and conversions now
+  happen in `<job folder>/.incomplete/<video id>/`; only finished files are
+  moved into the job folder, and leftovers except `.part` files are cleared
+  before each attempt.
+- `--force` (and `skip_existing: false`) deleted the existing file before
+  downloading again, so a failed re-download lost it. The new file now
+  replaces the old one only after it succeeds.
+
 ## [0.0.14] - 2026-10-23
 
 ### Added
