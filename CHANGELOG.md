@@ -9,6 +9,35 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-23
+
+First working release. Everything from 0.0.1 to 0.0.21 below, tested
+offline (fake yt-dlp, real process pool, metadata file and lock) and live
+against YouTube.
+
+### Added
+
+- Config-driven downloads: a `config.yaml` with `defaults` and `jobs`, merge
+  order CLI > job > defaults > built-in, and full validation that reports
+  every problem at once with the job it belongs to.
+- mp3 (audio, `audio_quality`) and mp4 (video + audio, `max_resolution`
+  with fallback) downloads with yt-dlp and ffmpeg, into
+  `<output_dir>/<tag>/` (optionally `<tag>/<playlist title>/`).
+- Incremental sync: one shared JSON metadata file (`schema_version` 1),
+  records per video ID and format, playlist ordering (`order`) and `count`
+  windows, failed-video tracking with `--retry-failed`, `verify_files`,
+  `--force`, and "no longer in playlist" reporting. Nothing is ever deleted.
+- Safety: atomic metadata writes after every video, a lock file against
+  concurrent runs, corrupt-file backup and recovery, a staging folder so
+  only finished files reach the job folder, and a clean Ctrl+C that keeps
+  finished work and resumes on the next run.
+- Parallel downloads per job (`max_workers` processes, each with its own
+  YoutubeDL) plus `concurrent_fragment_downloads`.
+- Command line: `--job`, `--list`, `--dry-run`, `--status`,
+  `--retry-failed`, `--force`, `--format`, `--output-dir`, `--max-workers`,
+  `--version`, with documented exit codes.
+- `setup.sh` (uv), README, SECURITY.md and this changelog.
+
 ## [0.0.21] - 2026-10-23
 
 ### Fixed
