@@ -9,6 +9,19 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-10-23
+
+### Added
+
+- yt-dlp backend (`backend.py`): flat playlist listing (Mix playlists
+  capped at `mix_limit`), exact upload-date lookups for date ordering, and
+  the per-video download worker. mp3 uses `bestaudio` + FFmpegExtractAudio
+  at `audio_quality`; mp4 prefers the best stream at or below
+  `max_resolution` (falling back to the closest one), merged into mp4.
+- JavaScript runtime selection (`js_runtime: auto` = deno, node, bun).
+- Errors caused by YouTube rate limiting or bot checks carry a hint to wait,
+  lower `max_workers` or use `cookies_file`.
+
 ## [0.0.8] - 2026-10-23
 
 ### Changed
