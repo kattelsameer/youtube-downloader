@@ -9,6 +9,16 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-10-23
+
+### Added
+
+- Sync planner: sorts the listing by `order`, keeps the first `count`, and
+  sorts each selected video into download (new, retry, file missing,
+  forced), already downloaded, or previously failed, matching on video ID
+  and format. Videos that dropped out of the playlist are reported as
+  "no longer in playlist" and never touched.
+
 ## [0.0.6] - 2026-10-23
 
 ### Added
