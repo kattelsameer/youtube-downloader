@@ -9,6 +9,18 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.19] - 2026-10-23
+
+### Fixed
+
+- A missing `cookies_file` is reported even when the same job has other
+  config errors, so all problems show up in one run.
+- YouTube Music curated playlists (`RDCLAK5uy_...`) are no longer treated
+  as endless Mixes and cut to `mix_limit`.
+- `filename_template` values like `D:%(title)s.%(ext)s` or
+  `..\\%(title)s.%(ext)s`, which could write outside the job folder on
+  Windows, are rejected.
+
 ## [0.0.18] - 2026-10-23
 
 ### Fixed

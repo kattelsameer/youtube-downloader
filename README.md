@@ -347,7 +347,8 @@ Details:
 
 ### Mix playlists
 
-Auto-generated Mix/radio playlists (`list=RD...`) are treated like normal
+Auto-generated Mix/radio playlists (`list=RD...`, except YouTube Music's
+curated `RDCLAK5uy_...` playlists, which are finite) are treated like normal
 playlists, with two differences: YouTube returns a different selection on
 almost every fetch, and the list never ends. The tool reads at most
 `mix_limit` entries and applies `order` and `count` to those. Tracking by
