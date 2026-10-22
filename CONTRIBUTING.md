@@ -1,8 +1,7 @@
 # Contributing
 
 Thanks for helping improve youtube-downloader. This guide covers setting up,
-the branch model, what a change needs before it is merged, and how releases
-are made.
+the branch model, what a change needs, and how to open a pull request.
 
 Please keep the project's purpose in mind: it downloads content its users are
 allowed to download. Changes meant to get around DRM or other access controls
@@ -18,14 +17,20 @@ Open an issue and include:
   removed,
 - the command you ran and its output.
 
+For a larger change, open an issue first so the approach can be agreed on
+before you write the code.
+
 Report security problems privately as described in [SECURITY.md](SECURITY.md),
 not in a public issue.
 
 ## Setting up
 
+Fork the repository on GitHub, then:
+
 ```bash
 git clone <your fork>
 cd youtube-downloader
+git remote add upstream <this repository's URL>
 git checkout develop
 ./setup.sh --dev
 .venv/bin/python -m pytest -m "not live"
@@ -39,37 +44,36 @@ create POSIX semaphores; some sandboxed environments block that.
 
 | Branch | Purpose |
 |---|---|
-| `master` | Released versions. Each release is tagged `v<version>`. |
-| `develop` | Integration branch. Every change is merged here first. |
-| `feature/<short-name>` | A new feature, branched from `develop`. |
-| `fix/<short-name>` | A bug fix, branched from `develop`. |
-| `release-<version>` | Release preparation, branched from `develop`. |
+| `develop` | Integration branch. Pull requests target this branch. |
+| `master` | Released versions, managed by the maintainers. |
+| `feature/<short-name>` | Your branch for a new feature, from `develop`. |
+| `fix/<short-name>` | Your branch for a bug fix, from `develop`. |
 
-- Start every branch from an up-to-date `develop`.
-- One feature or fix per branch. Prefer several small branches to one large
-  one.
-- Never commit directly to `develop` or `master`.
-- Open pull requests against `develop`.
+- Start every branch from an up-to-date `develop`:
+  `git fetch upstream && git checkout -b feature/short-name upstream/develop`.
+- One feature or fix per branch. Prefer several small pull requests to one
+  large one.
+- Don't commit to `develop` or `master`, and don't open pull requests
+  against `master`.
 
 ## Making a change
 
-1. Create a branch: `git checkout -b feature/short-name develop`.
-2. Write code that reads like the code around it: type hints, small
+1. Write code that reads like the code around it: type hints, small
    functions, the standard library before new dependencies. Two design rules
    to keep:
    - all yt-dlp calls live in `src/youtube_downloader/backend.py`;
    - only the main process reads or writes the metadata file. Download
      workers return results and the main process records them.
-3. Add or update tests for what you changed. A bug fix comes with a test that
+2. Add or update tests for what you changed. A bug fix comes with a test that
    fails without the fix.
-4. Update the docs. Every config key and command-line flag must be described
+3. Update the docs. Every config key and command-line flag must be described
    in `README.md`; a test checks this. Update `SECURITY.md` when a change
    affects security.
-5. Bump the version in `manifest.json` (and its `updated` date), following
+4. Bump the version in `manifest.json` (and its `updated` date), following
    the rules below, and add an entry to `CHANGELOG.md` under a heading
    `## [x.y.z] - YYYY-MM-DD`. A test checks that the current version has an
    entry.
-6. Run the full offline test suite.
+5. Run the full offline test suite.
 
 ## Versioning
 
@@ -81,6 +85,9 @@ The project uses [semantic versioning](https://semver.org/):
   (MINOR while below 1.0.0). Describe it in the README and the changelog. A
   metadata change also bumps `schema_version` in
   `src/youtube_downloader/metadata.py`.
+
+If another pull request takes your version number first, bump to the next
+one when you update your branch.
 
 ## Commits
 
@@ -102,29 +109,29 @@ The offline suite replaces yt-dlp's network calls with `tests/fakes.py` but
 runs the real download pool, metadata file and lock. Live tests talk to
 YouTube and are skipped if YouTube is blocking your network.
 
-## Getting a change merged
+## Pull requests
 
-- Merge `develop` into your branch and resolve any conflicts there, never on
-  `develop`.
-- The whole test suite passes, the version is bumped and the changelog has
-  an entry.
-- A maintainer merges the branch into `develop` with
-  `git merge --no-ff <branch>`, so every change stays visible as its own
-  merge. Branches are not squashed.
-
-## Releases
-
-Maintainers make releases:
-
-1. `git checkout -b release-X.Y.Z develop`
-2. Set `X.Y.Z` in `manifest.json` if it isn't already, tidy the changelog
-   entry for the release and check the docs.
-3. Run the full test suite, including the live tests.
-4. Merge `release-X.Y.Z` into `develop`, then `develop` into `master`, both
-   with `--no-ff`.
-5. Tag the release on `master` and push:
+1. Bring your branch up to date with `develop` and resolve any conflicts on
+   your branch:
 
    ```bash
-   git tag -a vX.Y.Z -m "Release X.Y.Z"
-   git push origin master develop vX.Y.Z
+   git fetch upstream
+   git merge upstream/develop
    ```
+
+2. Push the branch to your fork and open a pull request against `develop`.
+3. In the description, say what changes and why, link the issue it closes,
+   and note anything reviewers should check by hand (for example a live
+   download you tried).
+4. Before asking for review, check that:
+   - the offline test suite passes,
+   - new behavior has tests,
+   - `README.md` describes any new config key, flag or behavior,
+   - `manifest.json` is bumped and `CHANGELOG.md` has an entry,
+   - commit messages follow the rules above.
+5. Answer review comments with new commits on the same branch rather than
+   force-pushing, so reviewers can see what changed.
+
+A maintainer merges the pull request into `develop` with a merge commit
+(`--no-ff`), so every change stays visible as its own merge. Pull requests
+are not squashed. Releases are made by the maintainers.

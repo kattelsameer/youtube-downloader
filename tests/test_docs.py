@@ -27,8 +27,8 @@ def test_readme_covers_required_topics():
 def test_contributing_guide_covers_the_workflow():
     guide = (Path(__file__).resolve().parent.parent / "CONTRIBUTING.md").read_text()
     for heading in ("## Branches", "## Making a change", "## Versioning", "## Commits",
-                    "## Getting a change merged", "## Releases"):
+                    "## Pull requests"):
         assert heading in guide
-    for branch in ("`develop`", "`master`", "`feature/<short-name>`", "`fix/<short-name>`",
-                   "`release-<version>`"):
+    for branch in ("`develop`", "`master`", "`feature/<short-name>`", "`fix/<short-name>`"):
         assert branch in guide
+    assert "## Releases" not in guide  # releases are a maintainer task

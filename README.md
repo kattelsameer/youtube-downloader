@@ -474,7 +474,7 @@ prints it. Every change bumps the version and adds an entry to
 ## Contributing
 
 Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) describes the
-branch model, commit and test rules, and how releases are made. Report
+branch model, commit and test rules, and how to open a pull request. Report
 security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
