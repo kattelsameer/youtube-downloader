@@ -1,0 +1,97 @@
+# youtube-downloader config. Run: python downloader.py --config config.yaml
+#
+# Every job inherits `defaults` and can override any of them (except
+# metadata_file). Precedence: command-line flags > job settings > defaults >
+# built-in defaults. Relative paths are relative to this file's folder.
+# For personal settings (cookies, proxy credentials) copy this file to
+# config.local.yaml, which git ignores.
+
+defaults:
+  # mp3 = audio only; mp4 = video merged with audio in an mp4 file
+  format: mp3
+  # mp3 bitrate in kbps, 32-320 (e.g. 192 or 320)
+  audio_quality: 192
+  # mp4 height limit: 360, 480, 720, 1080, ... or best. If no stream is at or
+  # below it, the closest available resolution is used instead.
+  max_resolution: 720
+  # Base folder; each job downloads into <output_dir>/<tag>/ (created if missing)
+  output_dir: downloads
+  # File name inside the job folder (yt-dlp template). Keep %(id)s so two
+  # videos with the same title don't overwrite each other.
+  filename_template: "%(title)s [%(id)s].%(ext)s"
+  # Playlist jobs: save into <output_dir>/<tag>/<playlist title>/ instead
+  use_playlist_subfolder: false
+  # Playlist order before `count` takes the first N: playlist (YouTube's
+  # order), newest, oldest, title_asc, title_desc, shortest, longest.
+  # newest/oldest look up each video's upload date once and cache it.
+  order: playlist
+  # Mix/radio playlists (list=RD...) never end; read at most this many entries
+  mix_limit: 25
+  # Videos downloaded at the same time within a job (separate processes)
+  max_workers: 3
+  # Parts of one video downloaded at the same time (faster for DASH/HLS)
+  concurrent_fragment_downloads: 4
+  # Retries for network errors, fragments and extraction
+  retries: 3
+  # Seconds before a stalled connection is dropped
+  socket_timeout: 30
+  # Speed limit per video, e.g. 2M or 500K; null means unlimited
+  rate_limit: null
+  # Don't download again when the output file already exists on disk
+  skip_existing: true
+  # If a video's recorded file was deleted, download it again
+  verify_files: true
+  # Retry videos that failed on an earlier run (same as --retry-failed)
+  retry_failed: false
+  # Netscape cookies.txt, for age-restricted videos or YouTube bot checks
+  cookies_file: null
+  # e.g. socks5://127.0.0.1:1080 (keep credentials in config.local.yaml)
+  proxy: null
+  # Write title/artist tags into the file
+  embed_metadata: true
+  # Embed the thumbnail as cover art
+  embed_thumbnail: false
+  # JavaScript runtime yt-dlp uses for YouTube: auto (deno, then node, then
+  # bun), deno, node, bun, quickjs or none
+  js_runtime: auto
+  # DEBUG, INFO, WARNING or ERROR
+  log_level: INFO
+  # One metadata file for all jobs (global only). Default:
+  # <output_dir>/metadata.json
+  # metadata_file: downloads/metadata.json
+
+# Example jobs: replace them with your own.
+jobs:
+  - tag: song-single            # folder name and metadata key, must be unique
+    enabled: true               # false keeps the job but skips it
+    mode: single                # single video
+    url: https://www.youtube.com/watch?v=10azSRvOv_E
+    format: mp3
+
+  - tag: song-playlist
+    mode: playlist
+    # a public Creative Commons jazz playlist
+    url: https://www.youtube.com/playlist?list=PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T
+    format: mp3
+    count: 3                    # first 3 after `order`; "all" for everything
+    retry_failed: false
+
+  - tag: video-single
+    mode: single
+    url: https://www.youtube.com/watch?v=10azSRvOv_E
+    format: mp4
+    max_resolution: 360         # job-level override of the default (720)
+
+  - tag: video-playlist
+    mode: playlist
+    url: https://www.youtube.com/playlist?list=PLfP6i5T0-DkK52drjlLM2wEGXSL-rqF4T
+    format: mp4
+    max_resolution: 360
+    count: 2
+    order: shortest             # the 2 shortest videos in the playlist
+
+  - tag: song-mix
+    enabled: false              # Mixes change on every fetch, see README
+    mode: playlist
+    url: https://www.youtube.com/watch?v=10azSRvOv_E&list=RD10azSRvOv_E&start_radio=1
+    count: 3
