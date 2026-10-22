@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import io
 import logging
 import os
 import re
@@ -107,7 +108,10 @@ def base_ydl_options(settings: dict, prefix: str = "") -> dict:
         "js_runtimes": js_runtimes_option(settings["js_runtime"]),
     }
     if settings.get("cookies_file"):
-        opts["cookiefile"] = settings["cookies_file"]
+        # yt-dlp writes the cookie jar back to `cookiefile` when it closes. Many
+        # workers doing that at once could garble the user's file, so each
+        # instance gets an in-memory copy and the file on disk is never written.
+        opts["cookiefile"] = io.StringIO(Path(settings["cookies_file"]).read_text(encoding="utf-8"))
     if settings.get("proxy"):
         opts["proxy"] = settings["proxy"]
     return opts
