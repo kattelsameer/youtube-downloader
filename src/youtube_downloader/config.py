@@ -425,18 +425,24 @@ def load_config(path, overrides: dict | None = None, cwd: Path | None = None) ->
         jobs.append(Job(tag=tag, name=str(raw_tag), mode=mode, url=url, enabled=enabled,
                         count=count, settings=settings))
 
+    metadata_path = None
+    metadata_file = defaults_raw.get("metadata_file")
+    if metadata_file not in (None, ""):
+        if not isinstance(metadata_file, str):
+            errors.append(f"defaults: metadata_file: must be a file path (got {metadata_file!r})")
+        else:
+            metadata_path = Path(_resolve_path(metadata_file, base))
+            if metadata_path.is_dir():
+                errors.append(f"defaults: metadata_file: {metadata_file!r} is a folder; "
+                              f"give a file path such as downloads/metadata.json")
+
     if errors:
         raise ConfigError(errors)
 
     merged_defaults = {**defaults, **cli}
     if "output_dir" not in cli:
         merged_defaults["output_dir"] = _resolve_path(merged_defaults["output_dir"], base)
-    metadata_file = defaults_raw.get("metadata_file")
-    if metadata_file not in (None, ""):
-        if not isinstance(metadata_file, str):
-            raise ConfigError(f"defaults: metadata_file: must be a file path (got {metadata_file!r})")
-        metadata_path = Path(_resolve_path(metadata_file, base))
-    else:
+    if metadata_path is None:
         metadata_path = Path(merged_defaults["output_dir"]) / "metadata.json"
     return Config(path=path.resolve(), defaults=merged_defaults, metadata_file=metadata_path,
                   jobs=jobs, warnings=warnings)
