@@ -184,6 +184,15 @@ def test_corrupt_metadata_is_backed_up_and_run_recovers(env, capsys):
     assert len(env.meta()["jobs"]["songs"]["videos"]) == 3
 
 
+def test_metadata_path_that_is_a_folder_exits_4_and_is_left_alone(env, capsys):
+    env.meta_path.mkdir(parents=True)
+    (env.meta_path / "keep.txt").write_text("x")
+    assert env.cli() == cli.EXIT_METADATA
+    assert "exists but is not a file" in capsys.readouterr().err
+    assert (env.meta_path / "keep.txt").is_file()
+    assert list(env.meta_path.parent.glob("metadata.json.bak.*")) == []
+
+
 def test_newer_metadata_schema_is_refused(env, capsys):
     env.meta_path.parent.mkdir(parents=True)
     env.meta_path.write_text('{"schema_version": 99, "jobs": {}}')

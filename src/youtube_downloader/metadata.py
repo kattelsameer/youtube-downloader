@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import errno
 import json
 import logging
 import os
@@ -41,6 +42,11 @@ else:
 
     def _unlock_file(fh):
         fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+
+# errno values that mean "someone else holds the lock" (flock, msvcrt.locking)
+LOCK_HELD_ERRNOS = frozenset(
+    {errno.EAGAIN, errno.EWOULDBLOCK, errno.EACCES} | ({errno.EDEADLK} if hasattr(errno, "EDEADLK") else set()))
 
 
 class MetadataError(Exception):
@@ -92,11 +98,19 @@ class MetadataLock:
         self._fh = None
 
     def acquire(self) -> MetadataLock:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(self.path, "a+", encoding="utf-8")
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            fh = open(self.path, "a+", encoding="utf-8")
+        except OSError as exc:
+            raise MetadataError(f"cannot create lock file {self.path}: {exc}") from None
         try:
             _lock_file(fh)
-        except OSError:
+        except OSError as exc:
+            if exc.errno not in LOCK_HELD_ERRNOS:
+                fh.close()
+                raise MetadataError(
+                    f"cannot lock {self.path}: {exc}. The file system may not support "
+                    f"locking (network drive?); put metadata_file on a local disk") from None
             holder = ""
             with contextlib.suppress(OSError):
                 fh.seek(0)
@@ -171,11 +185,16 @@ class MetadataStore:
     def load(self) -> MetadataStore:
         if not self.path.exists():
             return self
+        if not self.path.is_file():
+            raise MetadataError(f"metadata path {self.path} exists but is not a file")
         try:
-            with open(self.path, encoding="utf-8") as fh:
-                data = json.load(fh)
+            raw = self.path.read_bytes()
+        except OSError as exc:  # unreadable is not corrupt: never move it aside
+            raise MetadataError(f"cannot read metadata file {self.path}: {exc}") from None
+        try:
+            data = json.loads(raw.decode("utf-8"))
             _check_metadata_structure(data)
-        except (OSError, ValueError) as exc:  # json.JSONDecodeError is a ValueError
+        except ValueError as exc:  # bad UTF-8, bad JSON or wrong structure
             self._recover(exc)
             return self
         data.setdefault("upload_dates", {})

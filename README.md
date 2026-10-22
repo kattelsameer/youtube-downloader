@@ -285,7 +285,9 @@ How the file is kept safe:
 - **Corruption.** If the file can't be parsed or has the wrong structure, it
   is moved to `metadata.json.bak.<timestamp>`, a warning is printed, and the
   run starts with empty metadata. Read-only commands only warn and leave the
-  file alone.
+  file alone. A file that exists but can't be read (permissions,
+  I/O error) or a folder at that path is never moved: the run stops with exit
+  code 4 so you can fix it.
 - **Removed jobs.** If you delete a job from the config, its metadata stays
   untouched; `--status` lists it as "not in config any more".
 
@@ -397,6 +399,9 @@ make sure `ffmpeg` and `ffprobe` are on your PATH.
 
 **"another instance is already running".** Another run holds the lock. Wait
 for it to finish. The lock file itself can stay; it isn't stale.
+
+**"cannot lock ... may not support locking".** Some network drives don't
+support file locks. Put `metadata_file` on a local disk.
 
 **A playlist job says "lists playlists or channel tabs, not videos".** Use the
 channel's `/videos` URL (for example `https://www.youtube.com/@name/videos`)

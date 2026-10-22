@@ -9,6 +9,21 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.17] - 2026-10-23
+
+### Fixed
+
+- A `metadata_file` pointing at a folder was treated as corrupt and the
+  whole folder was renamed to `<name>.bak.<timestamp>`. Folders and
+  unreadable files are now never moved: config validation rejects a folder,
+  and a read error stops the run with exit code 4. Only files that can't be
+  parsed or have the wrong structure are backed up.
+- Lock failures other than "held by another process" (e.g. a network drive
+  without lock support, or a lock file that can't be created) are reported
+  as such with exit code 4, instead of "another instance is already running".
+- A wrongly typed `metadata_file` is reported together with all other config
+  errors.
+
 ## [0.0.16] - 2026-10-23
 
 ### Fixed
