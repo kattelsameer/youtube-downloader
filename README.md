@@ -210,6 +210,12 @@ downloads/
 Every job writes into `<output_dir>/<tag>/`. With `use_playlist_subfolder:
 true`, playlist jobs write into `<output_dir>/<tag>/<playlist title>/`.
 
+Downloads and conversions happen in a hidden `.incomplete/<video id>/`
+folder inside the job folder. A file is moved into the job folder only after
+it is completely downloaded and converted, so the job folder never holds a
+half-written mp3 or mp4. The `.incomplete` folder is removed when a video
+finishes; after an interruption it keeps yt-dlp's `.part` files for resuming.
+
 ## The metadata file
 
 One JSON file, shared by all jobs, is the only source of truth for what has
@@ -327,6 +333,8 @@ Details:
 - **Deleted files**: with `verify_files: true`, a recorded video whose file
   is missing is downloaded again. With `false`, the record is trusted.
 - **`--force`** downloads every selected video again and updates the records.
+  The old file is replaced only after the new download has succeeded; if it
+  fails, the old file stays.
 - **Single mode** follows the same rules for its one video.
 - **Several jobs** share the metadata file but each has its own entry, so
   the same video in two jobs is downloaded once per job, into each job's
@@ -364,7 +372,10 @@ use that.
 Ctrl+C cancels queued downloads and stops the running ones right away.
 Every video that finished before that is already in the metadata. The run
 exits with code 130, and the next run continues with the rest. yt-dlp keeps
-its `.part` files, so a half-downloaded video resumes where it stopped.
+its `.part` files in `.incomplete/`, so a half-downloaded video resumes where
+it stopped. Anything else left there by the interruption, such as an mp3
+whose conversion was cut off, is deleted before the next attempt, so a
+truncated file is never mistaken for a finished one.
 
 ## Troubleshooting
 

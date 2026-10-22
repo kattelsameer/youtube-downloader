@@ -7,6 +7,7 @@ shared between processes or threads.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import logging
 import os
@@ -195,18 +196,60 @@ def lookup_upload_dates(entries, settings: dict, max_threads: int = 8) -> dict[s
 # Downloading (worker processes)
 # ---------------------------------------------------------------------------
 
+STAGING_DIR = ".incomplete"
+RESUMABLE_SUFFIXES = (".part", ".ytdl")
+
+
+def staging_dir(task: dict) -> Path:
+    """Per-video work folder inside the job folder. yt-dlp downloads and
+    converts there, so the job folder only ever receives finished files."""
+    return Path(task["target_dir"]) / STAGING_DIR / task["video_id"]
+
+
+def replaces_existing(task: dict) -> bool:
+    """--force or skip_existing: false: download again even if the file exists."""
+    return bool(task.get("force")) or not task["settings"]["skip_existing"]
+
+
+def clear_stale_outputs(staging: Path) -> None:
+    """Delete leftovers of an interrupted attempt except resumable .part files.
+
+    ffmpeg writes converted audio straight to its final name, so a killed
+    conversion leaves a truncated .mp3 that yt-dlp would take as finished.
+    """
+    if not staging.is_dir():
+        return
+    for item in staging.iterdir():
+        if item.is_file() and not item.name.endswith(RESUMABLE_SUFFIXES):
+            item.unlink()
+
+
+def remove_staging(staging: Path, everything: bool) -> None:
+    if everything:
+        shutil.rmtree(staging, ignore_errors=True)
+    for folder in (staging, staging.parent):
+        with contextlib.suppress(OSError):
+            folder.rmdir()  # only succeeds when empty
+
+
 def build_download_options(task: dict) -> dict:
     """yt-dlp options for one video, from the job's merged settings."""
     s = task["settings"]
+    staging = staging_dir(task)
+    replace = replaces_existing(task)
     opts = base_ydl_options(s, prefix=f"[{task['tag']}] ")
     opts.update({
-        "outtmpl": {"default": str(Path(task["target_dir"]) / s["filename_template"])},
+        "outtmpl": {"default": s["filename_template"]},
+        # Work happens in the staging folder; yt-dlp moves the finished file to
+        # "home". When replacing, the worker moves it itself after success, so
+        # a failed re-download never costs the old file.
+        "paths": {"home": str(staging if replace else Path(task["target_dir"])), "temp": str(staging)},
         "noplaylist": True,
         "fragment_retries": s["retries"],
         "concurrent_fragment_downloads": s["concurrent_fragment_downloads"],
         "continuedl": True,
-        # None = keep an existing final file (yt-dlp: "already downloaded")
-        "overwrites": True if task.get("force") or not s["skip_existing"] else None,
+        # None = keep an existing finished file (yt-dlp: "already downloaded")
+        "overwrites": True if replace else None,
     })
     if s.get("rate_limit"):
         opts["ratelimit"] = s["rate_limit"]
@@ -253,10 +296,12 @@ def download_worker(task: dict) -> dict:
             info = status.get("info_dict") or {}
             log.info("[%s] started     %s [%s]", task["tag"], info.get("title") or task.get("title") or "", video_id)
 
+    staging = staging_dir(task)
     opts = build_download_options(task)
     opts["post_hooks"] = [final_paths.append]
     opts["progress_hooks"] = [on_progress]
     try:
+        clear_stale_outputs(staging)
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(watch_url(video_id), download=True)
         if not info:
@@ -265,6 +310,12 @@ def download_worker(task: dict) -> dict:
         path = final_paths[-1] if final_paths else downloads[-1].get("filepath")
         if not path or not Path(path).is_file():
             raise RuntimeError("download finished but the output file was not found")
+        if replaces_existing(task):
+            destination = Path(task["target_dir"]) / Path(path).name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(path, destination)  # same file system: atomic swap
+            path = str(destination)
+        remove_staging(staging, everything=True)
         result.update(
             ok=True,
             title=info.get("title"),
@@ -276,5 +327,6 @@ def download_worker(task: dict) -> dict:
         )
     except Exception as exc:  # noqa: BLE001 - report every failure, keep the pool alive
         result["error"] = clean_error(exc)
+        remove_staging(staging, everything=False)  # keep .part files for a resume
     result["elapsed"] = round(time.monotonic() - started, 2)
     return result

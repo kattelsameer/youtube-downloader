@@ -64,8 +64,17 @@ def test_mp3_options(tmp_path):
     assert opts["format"] == "bestaudio/best" and opts["final_ext"] == "mp3"
     assert opts["postprocessors"][0] == {"key": "FFmpegExtractAudio", "preferredcodec": "mp3",
                                          "preferredquality": "320"}
-    assert opts["outtmpl"]["default"] == str(tmp_path / "t" / "%(title)s [%(id)s].%(ext)s")
+    assert opts["outtmpl"]["default"] == "%(title)s [%(id)s].%(ext)s"
     assert opts["noplaylist"] is True and opts["overwrites"] is None
+
+
+def test_work_happens_in_a_staging_folder(tmp_path):
+    staging = str(tmp_path / "t" / ".incomplete" / "10azSRvOv_E")
+    opts = backend.build_download_options(make_task(tmp_path))
+    assert opts["paths"] == {"home": str(tmp_path / "t"), "temp": staging}
+    for task in (make_task(tmp_path, force=True), make_task(tmp_path, skip_existing=False)):
+        # replacing: yt-dlp finishes in staging, the worker swaps the file in afterwards
+        assert backend.build_download_options(task)["paths"] == {"home": staging, "temp": staging}
 
 
 @pytest.mark.parametrize("height, first_sort", [(360, "res:360"), (1080, "res:1080"), ("best", "res")])
@@ -131,15 +140,23 @@ def test_clean_error():
 
 # --- download worker -------------------------------------------------------
 
-def fake_download(ydl, url):
-    target = Path(ydl.opts["outtmpl"]["default"].replace("%(title)s", "Chaahat")
-                  .replace("%(id)s", "10azSRvOv_E").replace("%(ext)s", ydl.opts["final_ext"]))
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(b"\0" * 1234)
+def fake_download(ydl, url, content=b"\0" * 1234):
+    """Behaves like yt-dlp with `paths`: work in temp, then move to home."""
+    name = (ydl.opts["outtmpl"]["default"].replace("%(title)s", "Chaahat")
+            .replace("%(id)s", "10azSRvOv_E").replace("%(ext)s", ydl.opts["final_ext"]))
+    temp = Path(ydl.opts["paths"]["temp"]) / name
+    home = Path(ydl.opts["paths"]["home"]) / name
+    if ydl.opts["overwrites"] is None and home.exists():
+        pass  # "has already been downloaded"
+    else:
+        temp.parent.mkdir(parents=True, exist_ok=True)
+        temp.write_bytes(content)
+        home.parent.mkdir(parents=True, exist_ok=True)
+        temp.replace(home)
     for hook in ydl.opts["progress_hooks"]:
         hook({"status": "downloading", "info_dict": {"title": "Chaahat"}})
     for hook in ydl.opts["post_hooks"]:
-        hook(str(target))
+        hook(str(home))
     return {"id": "10azSRvOv_E", "title": "Chaahat", "uploader": "Artist", "duration": 300,
             "upload_date": "20240501"}
 
@@ -153,6 +170,64 @@ def test_worker_success(tmp_path, fake_ydl):
         ("Chaahat", "Artist", 300, "20240501")
     assert fake_ydl.instances[0].last_call["download"] is True
     assert result["elapsed"] >= 0
+
+
+def test_worker_cleans_staging_after_success(tmp_path, fake_ydl):
+    fake_ydl.responses[VIDEO] = fake_download
+    backend.download_worker(make_task(tmp_path))
+    assert not (tmp_path / "t" / ".incomplete").exists()
+    assert [p.name for p in (tmp_path / "t").iterdir()] == ["Chaahat [10azSRvOv_E].mp3"]
+
+
+def test_truncated_output_from_an_interrupted_run_is_not_reused(tmp_path, fake_ydl):
+    staging = tmp_path / "t" / ".incomplete" / "10azSRvOv_E"
+    staging.mkdir(parents=True)
+    (staging / "Chaahat [10azSRvOv_E].mp3").write_bytes(b"trunc")    # killed ffmpeg output
+    (staging / "Chaahat [10azSRvOv_E].webm.part").write_bytes(b"p")   # resumable download
+    seen = {}
+
+    def check_then_download(ydl, url):
+        seen["files"] = sorted(p.name for p in staging.iterdir())
+        return fake_download(ydl, url)
+
+    fake_ydl.responses[VIDEO] = check_then_download
+    result = backend.download_worker(make_task(tmp_path))
+    assert seen["files"] == ["Chaahat [10azSRvOv_E].webm.part"]
+    assert result["ok"] and (tmp_path / "t" / "Chaahat [10azSRvOv_E].mp3").read_bytes() == b"\0" * 1234
+
+
+def test_failure_keeps_part_files_for_resume(tmp_path, fake_ydl):
+    staging = tmp_path / "t" / ".incomplete" / "10azSRvOv_E"
+
+    def partial_then_fail(ydl, url):
+        staging.mkdir(parents=True)
+        (staging / "Chaahat [10azSRvOv_E].webm.part").write_bytes(b"half")
+        raise yt_dlp.utils.DownloadError("ERROR: connection reset")
+
+    fake_ydl.responses[VIDEO] = partial_then_fail
+    assert backend.download_worker(make_task(tmp_path))["ok"] is False
+    assert (staging / "Chaahat [10azSRvOv_E].webm.part").read_bytes() == b"half"
+
+
+def test_failed_force_redownload_keeps_the_old_file(tmp_path, fake_ydl):
+    old = tmp_path / "t" / "Chaahat [10azSRvOv_E].mp3"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"old good file")
+    fake_ydl.responses[VIDEO] = yt_dlp.utils.DownloadError("ERROR: HTTP Error 403")
+    result = backend.download_worker(make_task(tmp_path, force=True))
+    assert result["ok"] is False and old.read_bytes() == b"old good file"
+    assert not (tmp_path / "t" / ".incomplete").exists()
+
+
+def test_successful_force_redownload_replaces_the_old_file(tmp_path, fake_ydl):
+    old = tmp_path / "t" / "Chaahat [10azSRvOv_E].mp3"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(b"old good file")
+    fake_ydl.responses[VIDEO] = lambda ydl, url: fake_download(ydl, url, content=b"new file")
+    result = backend.download_worker(make_task(tmp_path, force=True))
+    assert result["ok"] and result["file_path"] == "t/Chaahat [10azSRvOv_E].mp3"
+    assert old.read_bytes() == b"new file"
+    assert sorted(p.name for p in (tmp_path / "t").iterdir()) == ["Chaahat [10azSRvOv_E].mp3"]
 
 
 def test_worker_reports_download_error(tmp_path, fake_ydl):
