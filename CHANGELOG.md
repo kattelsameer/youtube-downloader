@@ -9,6 +9,18 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-23
+
+### Added
+
+- Metadata store: one JSON file (`schema_version` 1) shared by all jobs,
+  with records kept per video ID and per format, atomic writes (temp file,
+  fsync, rename), a flush after every recorded video, and a lock file so two
+  instances can't write at once.
+- Corrupt or unreadable metadata is moved to `metadata.json.bak.<timestamp>`
+  with a warning and the run starts fresh. Read-only commands leave the file
+  alone. A file from a newer schema is refused instead of overwritten.
+
 ## [0.0.5] - 2026-10-23
 
 ### Fixed
