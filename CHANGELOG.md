@@ -9,6 +9,13 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-10-23
+
+### Fixed
+
+- The uv dependency-resolve test is skipped instead of failing when PyPI
+  can't be reached.
+
 ## [0.0.4] - 2026-10-23
 
 ### Added
