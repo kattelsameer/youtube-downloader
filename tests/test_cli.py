@@ -231,6 +231,31 @@ def test_ctrl_c_saves_progress_and_next_run_continues(env):
     assert sorted(env.meta()["jobs"]["songs"]["videos"]) == ids
 
 
+def test_ctrl_c_stops_in_flight_downloads_promptly(env):
+    """Downloads running at Ctrl+C time are killed, not waited for."""
+    env.jobs = [{"tag": "songs", "mode": "playlist", "url": PLAYLIST}]
+    env.defaults["max_workers"] = 2
+    env.state["sleep"] = 3.0
+    env.playlist([vid(i) for i in range(1, 7)])
+
+    proc = env.spawn()
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline and len(fakes.calls(env.state_path)) < 2:
+        time.sleep(0.05)
+    time.sleep(0.5)  # the next two downloads are now in flight, ~2.5s from done
+    os.killpg(proc.pid, signal.SIGINT)
+    interrupted_at = time.monotonic()
+    proc.communicate(timeout=30)
+    took = time.monotonic() - interrupted_at
+
+    assert proc.returncode == cli.EXIT_INTERRUPTED
+    assert took < 2.0, f"exit took {took:.1f}s: in-flight workers were waited for"
+    time.sleep(3.5)  # a surviving worker would finish and log its call by now
+    assert len(fakes.calls(env.state_path)) == 2
+    files = sorted((env.root / "out" / "songs").glob("*.mp3"))
+    assert len(files) == len(env.meta()["jobs"]["songs"]["videos"]) == 2
+
+
 def test_second_instance_is_locked_out(env):
     env.jobs = [{"tag": "songs", "mode": "playlist", "url": PLAYLIST}]
     env.state["sleep"] = 1.0

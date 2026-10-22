@@ -9,6 +9,14 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-10-23
+
+### Fixed
+
+- Ctrl+C now stops downloads that are in progress right away. Before, the
+  worker processes were not terminated, so the tool waited for them to
+  finish and their files were left on disk without metadata records.
+
 ## [0.0.11] - 2026-10-23
 
 ### Added
