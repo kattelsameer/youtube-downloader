@@ -10,7 +10,7 @@ from pathlib import Path
 from .config import FORMATS, Config, ConfigError, load_config, select_jobs
 from .logs import configure_logging
 from .metadata import STATUS_DOWNLOADED, STATUS_FAILED, LockError, MetadataError, MetadataLock, MetadataStore
-from .runner import RunOptions, emit, run_jobs
+from .runner import RunOptions, display_path, emit, run_jobs
 from .version import read_manifest, read_version
 
 log = logging.getLogger("ytdl")
@@ -66,14 +66,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version",
                         version=f"{manifest.get('name', 'youtube-downloader')} {read_version()}")
     return parser
-
-
-def display_path(path: Path) -> str:
-    """Path relative to the current folder when it is inside it."""
-    try:
-        return str(Path(path).resolve().relative_to(Path.cwd().resolve()))
-    except ValueError:
-        return str(path)
 
 
 def _video_counts(entry: dict | None, fmt: str | None = None) -> dict:
@@ -185,7 +177,7 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_list(config, store) if args.list else cmd_status(config, store, args.job)
         return cmd_run(config, jobs, args)
     except LockError as exc:
-        log.error("%s", exc)
+        log.error("%s; lock file: %s", exc, display_path(exc.path))
         return EXIT_LOCKED
     except MetadataError as exc:
         log.error("%s", exc)
