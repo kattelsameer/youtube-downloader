@@ -1,6 +1,6 @@
 {
   "name": "youtube-downloader",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "updated": "2026-10-23",
   "description": "Config-driven YouTube audio/video downloader with incremental playlist sync"
 }

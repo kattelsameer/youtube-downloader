@@ -9,6 +9,15 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.20] - 2026-10-23
+
+### Fixed
+
+- With a `filename_template` that creates subfolders (e.g.
+  `%(uploader)s/%(title)s.%(ext)s`), `--force` moved the new file to the
+  job folder's top level, and leftovers of interrupted attempts in such
+  subfolders were not cleared. Both now keep the template's folders.
+
 ## [0.0.19] - 2026-10-23
 
 ### Fixed
@@ -18,7 +27,7 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 - YouTube Music curated playlists (`RDCLAK5uy_...`) are no longer treated
   as endless Mixes and cut to `mix_limit`.
 - `filename_template` values like `D:%(title)s.%(ext)s` or
-  `..\\%(title)s.%(ext)s`, which could write outside the job folder on
+  `..\%(title)s.%(ext)s`, which could write outside the job folder on
   Windows, are rejected.
 
 ## [0.0.18] - 2026-10-23
