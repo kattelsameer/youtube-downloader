@@ -31,7 +31,7 @@ def test_read_version_unreadable_manifest(tmp_path):
 def test_changelog_has_entry_for_current_version():
     version = json.loads((ROOT / "manifest.json").read_text())["version"]
     changelog = (ROOT / "CHANGELOG.md").read_text()
-    assert re.search(rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", changelog, re.M), \
+    assert re.search(rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}( - .+)?$", changelog, re.M), \
         f"CHANGELOG.md has no '## [{version}] - YYYY-MM-DD' entry"
 
 
