@@ -292,7 +292,7 @@ def test_use_playlist_subfolder(world):
     assert entry["playlist_title"] == 'Best: of "2024"' and entry["last_run"]
 
 
-def test_worker_crash_is_recorded_and_next_job_runs(world):
+def test_worker_crash_leaves_unfinished_videos_for_next_run(world):
     world.set_playlist([vid(1), vid(2), vid(3)])
     world.set_playlist([vid(5)], url=OTHER)
     world.state["crash"] = [vid(2)]
@@ -300,10 +300,40 @@ def test_worker_crash_is_recorded_and_next_job_runs(world):
     world.defaults["max_workers"] = 1
     world.jobs.append({"tag": "other", "mode": "playlist", "url": OTHER})
     songs, other = world.run()
-    assert world.record(vid(1))["status"] == "downloaded"
-    assert world.record(vid(2))["status"] == "failed"
-    assert "worker process crashed" in world.record(vid(2))["last_error"]
-    assert songs.downloaded + songs.failed == 3 and other.downloaded == 1
+    videos = world.metadata()["jobs"]["songs"]["videos"]
+    assert list(videos) == [vid(1)]           # vid2 (crashed) and vid3 (never tried) unrecorded
+    assert songs.downloaded == 1 and songs.failed == 0
+    assert "worker process crashed" in songs.error and "2 video(s) were not finished" in songs.error
+    assert other.downloaded == 1               # the next job still runs
+
+    world.state["crash"] = []
+    world.save_state()
+    songs, _ = world.run()
+    assert songs.downloaded == 2 and sorted(world.metadata()["jobs"]["songs"]["videos"]) == [vid(1), vid(2), vid(3)]
+
+
+def test_metadata_write_error_stops_workers_and_other_jobs_run(world, monkeypatch):
+    world.set_playlist([vid(1), vid(2)])
+    world.set_playlist([vid(5)], url=OTHER)
+    world.state["sleeps"] = {vid(1): 0.1, vid(2): 4.0}
+    world.save_state()
+    world.defaults["max_workers"] = 2
+    world.jobs.append({"tag": "other", "mode": "playlist", "url": OTHER})
+    real_record = MetadataStore.record_result
+
+    def disk_full(self, job, result):
+        if job.tag == "songs":
+            raise OSError(28, "No space left on device")
+        return real_record(self, job, result)
+
+    monkeypatch.setattr(MetadataStore, "record_result", disk_full)
+    started = time.monotonic()
+    songs, other = world.run()
+    assert time.monotonic() - started < 3.5    # did not wait for vid2's 4s download
+    assert "No space left on device" in songs.error
+    assert other.downloaded == 1
+    time.sleep(2.5)  # a surviving worker would have logged vid2 by now
+    assert vid(2) not in [c["id"] for c in world.calls()]
 
 
 def test_summary_counts_match_metadata(world):
