@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import downloader
+from youtube_downloader import version
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -18,14 +18,14 @@ def test_manifest_has_required_fields():
 
 def test_read_version_matches_manifest():
     manifest = json.loads((ROOT / "manifest.json").read_text())
-    assert downloader.read_version() == manifest["version"]
+    assert version.read_version() == manifest["version"]
 
 
 def test_read_version_unreadable_manifest(tmp_path):
-    assert downloader.read_version(tmp_path / "missing.json") == "unknown"
+    assert version.read_version(tmp_path / "missing.json") == "unknown"
     bad = tmp_path / "bad.json"
     bad.write_text("{not json")
-    assert downloader.read_version(bad) == "unknown"
+    assert version.read_version(bad) == "unknown"
 
 
 def test_changelog_has_entry_for_current_version():

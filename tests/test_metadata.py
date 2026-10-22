@@ -7,14 +7,15 @@ from pathlib import Path
 
 import pytest
 
-import downloader as d
+from youtube_downloader import config
+from youtube_downloader import metadata as d
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def make_job(tmp_path, tag="lofi", fmt="mp3", mode="playlist"):
-    settings = {**d.BUILTIN_DEFAULTS, "format": fmt, "output_dir": str(tmp_path / "out")}
-    return d.Job(tag=tag, name=tag, mode=mode, url="https://www.youtube.com/playlist?list=PLx",
+    settings = {**config.BUILTIN_DEFAULTS, "format": fmt, "output_dir": str(tmp_path / "out")}
+    return config.Job(tag=tag, name=tag, mode=mode, url="https://www.youtube.com/playlist?list=PLx",
                  enabled=True, count=None, settings=settings)
 
 
@@ -193,9 +194,10 @@ def test_newer_schema_is_refused_and_left_alone(tmp_path):
 
 HOLD_LOCK = """
 import sys, time
+from pathlib import Path
 sys.path.insert(0, {root!r})
-import downloader as d
-lock = d.MetadataLock(d.Path({path!r})).acquire()
+from youtube_downloader import metadata as d
+lock = d.MetadataLock(Path({path!r})).acquire()
 print("locked", flush=True)
 time.sleep(30)
 """
@@ -203,7 +205,7 @@ time.sleep(30)
 
 def start_lock_holder(path):
     proc = subprocess.Popen(
-        [sys.executable, "-c", HOLD_LOCK.format(root=str(ROOT), path=str(path))],
+        [sys.executable, "-c", HOLD_LOCK.format(root=str(ROOT / "src"), path=str(path))],
         stdout=subprocess.PIPE, text=True,
     )
     assert proc.stdout.readline().strip() == "locked"

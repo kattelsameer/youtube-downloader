@@ -9,6 +9,15 @@ number (0.0.x). Version 0.1.0 marks the first working release.
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-10-23
+
+### Changed
+
+- Code moved from one large `downloader.py` into the
+  `src/youtube_downloader/` package (`version`, `config`, `metadata`,
+  `sync`, `cli`). `downloader.py` is now a small entry point, so
+  `python downloader.py ...` works as before.
+
 ## [0.0.7] - 2026-10-23
 
 ### Added
