@@ -96,13 +96,18 @@ def _init_worker(log_level: str) -> None:
 def _stop_pool(pool: ProcessPoolExecutor) -> None:
     """Cancel queued downloads and stop running ones right away. yt-dlp keeps
     its .part files, so an interrupted video resumes on the next run."""
-    pool.shutdown(wait=False, cancel_futures=True)
     terminate = getattr(pool, "terminate_workers", None)  # Python 3.14+
     if terminate is not None:
-        terminate()
+        terminate()  # also cancels queued work
         return
-    for process in list((getattr(pool, "_processes", None) or {}).values()):
-        process.terminate()
+    # shutdown() forgets the worker processes, so take the list first.
+    processes = list((getattr(pool, "_processes", None) or {}).values())
+    pool.shutdown(wait=False, cancel_futures=True)
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
+    for process in processes:
+        process.join(timeout=5)
 
 
 def make_plan(job: Job, listing: Listing, store: MetadataStore, options: RunOptions) -> SyncPlan:
